@@ -1,0 +1,233 @@
+:root {
+  --bg: #0f1115;
+  --panel: #151821;
+  --text: #f2f4f7;
+  --muted: #a3aab8;
+  --axis: #aeb7c2;
+  --noData: #2a2f3b;
+  --barHeight: 40px;
+  --barBg: #0c0e12;
+  --barBorder: #1a1f29;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue",
+    Arial;
+  padding-bottom: var(--barHeight);
+}
+
+/* layout a 3 colonne */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1.5fr; /* sx : centro : dx */
+  height: 100vh;
+  gap: 16px;
+  padding: 16px;
+  padding-bottom: calc(16px + var(--barHeight));
+}
+.col {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* colonna sinistra */
+.col-left h1 {
+  font-size: 48px;
+  line-height: 1.2;
+  margin: 0 0 8px 0;
+}
+.col-left small {
+  font-size: 28px;
+  font-weight: 400;
+}
+.col-left .intro {
+  font-size: 16px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.emotions ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.emotions li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 20px;
+}
+.emotions h3 {
+  font-size: 20px;
+  margin: 12px 0 6px;
+}
+.emotions i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--c);
+}
+
+/* colonna centrale */
+.col-center .grid-placeholder {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 8px;
+}
+.col-center .grid-placeholder div {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+
+/* colonna destra: 2 grafici affiancati */
+.col-right {
+  display: flex;
+  /* assicuriamoci che la colonna prenda tutta l’altezza disponibile */
+  min-height: 0;
+}
+
+/* la griglia dei due grafici deve occupare tutta l’altezza */
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+  height: 100%; /* <-- fondamentale */
+  min-height: 0; /* <-- sblocca l'altezza per i figli */
+}
+
+/* ogni blocco grafico si estende in verticale */
+.chart-block {
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* <-- permette al wrapper di crescere */
+}
+
+/* wrapper del grafico: prende tutto lo spazio del blocco */
+.chart-wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 1px; /* <-- evita height=0 */
+}
+
+/* svg a pieno wrapper */
+.chart-wrapper svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chart-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.chart-footer {
+  margin-top: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.chart-footer span {
+  font-size: 18px;
+  font-weight: 800;
+  margin-right: 4px;
+}
+
+/* asse */
+.axis {
+  color: var(--axis);
+}
+.axis text {
+  fill: var(--axis);
+  font-size: 12px;
+}
+.axis path,
+.axis line {
+  stroke: var(--axis);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+/* barre */
+.slot-bars .bar {
+  rx: 6px;
+  ry: 6px;
+}
+
+/* -------- BOTTOM BAR -------- */
+.bottombar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--barHeight);
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  padding: 0 16px;
+  background: var(--barBg);
+  border-top: 1px solid var(--barBorder);
+  color: var(--muted);
+  z-index: 100;
+}
+.bottombar .b-left {
+  justify-self: start;
+  font-size: 12px;
+}
+.bottombar .b-center {
+  justify-self: center;
+}
+.bottombar .b-right {
+  justify-self: end;
+}
+
+/* language toggle */
+.lang-toggle {
+  background: #131722;
+  border: 1px solid #242b38;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.lang-toggle .lang-it,
+.lang-toggle .lang-en {
+  opacity: 0.55;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.lang-toggle .divider {
+  opacity: 0.35;
+}
+.lang-toggle .lang-it.active,
+.lang-toggle.is-eng .lang-en {
+  opacity: 1;
+  color: var(--text);
+}
+.lang-toggle.is-eng .lang-it {
+  opacity: 0.55;
+}

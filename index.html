@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Zing • Emotional Journey</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <!-- Colonna 1: introduzione + emozioni -->
+      <aside class="col col-left">
+        <h1>Z!ng<br /><small>Emotional Journey</small></h1>
+        <p class="intro">
+          This is a creative piece of text designed specifically for showcasing
+          various design elements. It serves as a versatile placeholder that can
+          adapt to different layouts and styles, providing a visual context for
+          designers to work with.
+        </p>
+        <p class="intro">
+          Feel free to use it as a foundation for your projects, as it can
+          inspire new ideas and enhance the overall aesthetic.
+        </p>
+
+        <div class="emotions">
+          <h3>Activate / the emotions to explore</h3>
+          <ul>
+            <li><i style="--c: #2ecc71"></i> Curiosità</li>
+            <li><i style="--c: #f1c40f"></i> Entusiasmo</li>
+            <li><i style="--c: #3498db"></i> Fiducia</li>
+            <li><i style="--c: #95a5a6"></i> Indifferenza</li>
+            <li><i style="--c: #9b59b6"></i> Confusione</li>
+            <li><i style="--c: #e74c3c"></i> Timore</li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- Colonna 2: 9 riquadri (vuota per ora) -->
+      <section class="col col-center">
+        <div class="grid-placeholder">
+          <!-- qui metteremo i 9 box -->
+        </div>
+      </section>
+
+      <!-- Colonna 3: grafici barre Giorno 1 + Giorno 2 affiancati -->
+      <section class="col col-right">
+        <div class="chart-grid">
+          <!-- Giorno 1 -->
+          <div class="chart-block">
+            <header class="chart-header">
+              <span class="muted">Le emozioni da voi, durante il giorno</span>
+              <strong>Giovedì (Giorno 1)</strong>
+            </header>
+            <div class="chart-wrapper">
+              <svg id="chart-day1"></svg>
+            </div>
+            <footer class="chart-footer">
+              <span id="total-reactions-day1">0</span> Reazioni totali
+            </footer>
+          </div>
+
+          <!-- Giorno 2 -->
+          <div class="chart-block">
+            <header class="chart-header">
+              <span class="muted">Le emozioni da voi, durante il giorno</span>
+              <strong>Venerdì (Giorno 2)</strong>
+            </header>
+            <div class="chart-wrapper">
+              <svg id="chart-day2"></svg>
+            </div>
+            <footer class="chart-footer">
+              <span id="total-reactions-day2">0</span> Reazioni totali
+            </footer>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- BOTTOM BAR -->
+    <div class="bottombar" role="contentinfo">
+      <div class="b-left">
+        Ultimo aggiornamento: <span id="last-update">–</span>
+      </div>
+      <div class="b-center"></div>
+      <div class="b-right">
+        <button
+          id="lang-toggle"
+          class="lang-toggle"
+          aria-pressed="false"
+          aria-label="Cambia lingua"
+        >
+          <span class="lang-it active">ITA</span>
+          <span class="divider">/</span>
+          <span class="lang-en">ENG</span>
+        </button>
+      </div>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="./main.js"></script>
+  </body>
+</html>
