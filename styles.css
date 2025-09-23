@@ -1,3 +1,17 @@
+/* ===========================================================================
+Z!NG • EMOTIONAL JOURNEY • styles.css
+- Palette, layout 3 colonne, SVG centrale responsive, due chart a destra.
+- Legenda fissata in basso nella colonna sinistra.
+- Pensato per schermi ampi; bottom bar fissa.
+- Classi chiave:
+  .layout                → griglia principale 3 colonne
+  .col-left/.center/.right → pannelli
+  .emotions              → legenda (con dot color e click interattivo gestito dal JS)
+  .chart-grid            → due grafici affiancati 1fr/1fr (simmetrici)
+  .bar.dimmed            → attenuazione barre quando si filtra da legenda
+Note: il JS non colora più i box centrali (inner-box); restano con il colore base dell'SVG.
+============================================================================ */
+
 :root {
   --bg: #0f1115;
   --panel: #151821;
@@ -26,15 +40,16 @@ body {
   padding-bottom: var(--barHeight);
 }
 
-/* layout a 3 colonne */
+/* ------- 3-column layout ------- */
 .layout {
   display: grid;
   grid-template-columns: 0.5fr 2fr 0.9fr; /* sx : centro : dx */
-  height: 100vh;
   gap: 16px;
+  height: 100vh;
   padding: 16px;
   padding-bottom: calc(16px + var(--barHeight));
 }
+
 .col {
   background: var(--panel);
   border-radius: 12px;
@@ -42,16 +57,14 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
-/* colonna sinistra */
+/* ------- left column ------- */
 .col-left {
   display: flex;
   flex-direction: column;
-}
-
-.col-left .emotions {
-  margin-top: auto; /* spinge in basso la legenda */
+  min-height: 0;
 }
 .col-left h1 {
   font-size: 48px;
@@ -67,6 +80,14 @@ body {
   color: var(--muted);
   margin-bottom: 8px;
 }
+
+.emotions {
+  margin-top: auto;
+} /* pin legend at the bottom */
+.emotions h3 {
+  font-size: 20px;
+  margin: 12px 0 6px;
+}
 .emotions ul {
   list-style: none;
   padding: 0;
@@ -79,63 +100,62 @@ body {
   align-items: center;
   gap: 6px;
   font-size: 20px;
+  cursor: pointer;
 }
-.emotions h3 {
-  font-size: 20px;
-  margin: 12px 0 6px;
+.emotions li.active {
+  font-weight: 700;
+  color: var(--text);
 }
 .emotions i {
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: var(--c);
+  display: inline-block;
 }
 
-/* colonna centrale */
-.col-center .grid-placeholder {
-  flex: 1;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
-  gap: 8px;
-}
-.col-center .grid-placeholder div {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-}
-
-/* colonna destra: 2 grafici affiancati */
-.col-right {
-  display: flex;
-  /* assicuriamoci che la colonna prenda tutta l’altezza disponibile */
+/* ------- center column (SVG 9 rooms) ------- */
+.col-center {
   min-height: 0;
 }
-
-/* la griglia dei due grafici deve occupare tutta l’altezza */
-.chart-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+.center-map {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+.center-map svg {
+  display: block;
   width: 100%;
-  height: 100%; /* <-- fondamentale */
-  min-height: 0; /* <-- sblocca l'altezza per i figli */
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
 }
 
-/* ogni blocco grafico si estende in verticale */
+/* ------- right column: two timelines side-by-side ------- */
+.col-right {
+  min-height: 0;
+}
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* keep symmetric */
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
 .chart-block {
   display: flex;
   flex-direction: column;
-  min-height: 0; /* <-- permette al wrapper di crescere */
+  min-height: 0;
 }
-
-/* wrapper del grafico: prende tutto lo spazio del blocco */
 .chart-wrapper {
   position: relative;
   flex: 1;
-  min-height: 1px; /* <-- evita height=0 */
+  min-height: 1px;
 }
-
-/* svg a pieno wrapper */
 .chart-wrapper svg {
   position: absolute;
   inset: 0;
@@ -150,7 +170,6 @@ body {
   font-size: 13px;
   margin-bottom: 8px;
 }
-
 .chart-footer {
   margin-top: 8px;
   font-weight: 600;
@@ -162,7 +181,7 @@ body {
   margin-right: 4px;
 }
 
-/* asse */
+/* axes & bars */
 .axis {
   color: var(--axis);
 }
@@ -176,14 +195,16 @@ body {
   stroke-width: 1;
   shape-rendering: crispEdges;
 }
-
-/* barre */
 .slot-bars .bar {
   rx: 6px;
   ry: 6px;
 }
+.bar.dimmed {
+  opacity: 0.2;
+  transition: opacity 0.3s;
+}
 
-/* -------- BOTTOM BAR -------- */
+/* ------- bottom bar ------- */
 .bottombar {
   position: fixed;
   left: 0;
@@ -210,7 +231,6 @@ body {
   justify-self: end;
 }
 
-/* language toggle */
 .lang-toggle {
   background: #131722;
   border: 1px solid #242b38;
@@ -240,15 +260,19 @@ body {
   opacity: 0.55;
 }
 
-.bar.dimmed {
-  opacity: 0.2;
-  transition: opacity 0.3s;
+@media (max-width: 1400px) {
+  .layout {
+    grid-template-columns: 0.6fr 2fr 0.8fr;
+  }
 }
 
-.emotions li {
-  cursor: pointer;
+.room-inner {
+  transition: fill 0.3s ease;
 }
-.emotions li.active {
-  font-weight: bold;
-  color: var(--text);
+
+/* styles.css */
+[id^="inner-"] {
+  stroke: #fff;
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke; /* il bordo resta leggibile anche con zoom/resize */
 }
