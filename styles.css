@@ -29,7 +29,7 @@ body {
 /* layout a 3 colonne */
 .layout {
   display: grid;
-  grid-template-columns: 1fr 2fr 1.5fr; /* sx : centro : dx */
+  grid-template-columns: 0.5fr 2fr 0.9fr; /* sx : centro : dx */
   height: 100vh;
   gap: 16px;
   padding: 16px;
@@ -45,6 +45,14 @@ body {
 }
 
 /* colonna sinistra */
+.col-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.col-left .emotions {
+  margin-top: auto; /* spinge in basso la legenda */
+}
 .col-left h1 {
   font-size: 48px;
   line-height: 1.2;
@@ -230,4 +238,17 @@ body {
 }
 .lang-toggle.is-eng .lang-it {
   opacity: 0.55;
+}
+
+.bar.dimmed {
+  opacity: 0.2;
+  transition: opacity 0.3s;
+}
+
+.emotions li {
+  cursor: pointer;
+}
+.emotions li.active {
+  font-weight: bold;
+  color: var(--text);
 }

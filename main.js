@@ -54,13 +54,13 @@ function getDayDates(rows) {
   const dates = Array.from(
     new Set(
       rows
-        .map(r => (r.date ?? r.Date ?? '').toString().trim())
+        .map((r) => (r.date ?? r.Date ?? "").toString().trim())
         .filter(Boolean)
     )
   ).sort(); // [primaData, secondaData, ...]
   return {
-    'giorno 1': dates[0] ?? null,
-    'giorno 2': dates[1] ?? (dates[0] ?? null)
+    "giorno 1": dates[0] ?? null,
+    "giorno 2": dates[1] ?? dates[0] ?? null,
   };
 }
 
@@ -68,43 +68,45 @@ function filterRowsForDayStrict(rows, dayKey) {
   const map = getDayDates(rows);
   const targetDate = map[dayKey];
   if (!targetDate) return [];
-  return rows.filter(r => (r.date ?? r.Date ?? '').toString().trim() === targetDate);
+  return rows.filter(
+    (r) => (r.date ?? r.Date ?? "").toString().trim() === targetDate
+  );
 }
-
 
 /* ---------- Robust day assignment by date (falls back if 'day' is missing/inconsistent) ---------- */
 function assignDaysByDate(rows) {
   // Extract normalized date (YYYY-MM-DD) per row when available
-  const withDate = rows.map(r => {
+  const withDate = rows.map((r) => {
     const d = (r.date ?? r.Date ?? "").toString().trim();
-    return {row: r, date: d};
-/* ---------- Day/date mapping helpers (strict) ---------- */
-function dayDateMap(rows) {
+    return { row: r, date: d };
+    /* ---------- Day/date mapping helpers (strict) ---------- */
+    function dayDateMap(rows) {
+      const dates = Array.from(
+        new Set(
+          rows
+            .map((r) => (r.date ?? r.Date ?? "").toString().trim())
+            .filter(Boolean)
+        )
+      ).sort();
+      const map = new Map();
+      if (dates.length >= 1) map.set("giorno 1", dates[0]);
+      if (dates.length >= 2) map.set("giorno 2", dates[1]);
+      return map;
+    }
+
+    function filterRowsForDayStrict(rows, dayKey) {
+      const map = dayDateMap(rows);
+      const targetDate = map.get(dayKey);
+      if (!targetDate) return [];
+      return rows.filter((r) => {
+        const d = (r.date ?? r.Date ?? "").toString().trim();
+        return d === targetDate;
+      });
+    }
+  });
   const dates = Array.from(
-    new Set(
-      rows
-        .map(r => (r.date ?? r.Date ?? "").toString().trim())
-        .filter(Boolean)
-    )
+    new Set(withDate.map((x) => x.date).filter(Boolean))
   ).sort();
-  const map = new Map();
-  if (dates.length >= 1) map.set("giorno 1", dates[0]);
-  if (dates.length >= 2) map.set("giorno 2", dates[1]);
-  return map;
-}
-
-function filterRowsForDayStrict(rows, dayKey) {
-  const map = dayDateMap(rows);
-  const targetDate = map.get(dayKey);
-  if (!targetDate) return [];
-  return rows.filter(r => {
-    const d = (r.date ?? r.Date ?? "").toString().trim();
-    return d === targetDate;
-  });
-}
-
-  });
-  const dates = Array.from(new Set(withDate.map(x => x.date).filter(Boolean))).sort();
   // If we have at least 2 dates, map the earliest to "giorno 1" and the latest to "giorno 2"
   const mapByDate = new Map();
   if (dates.length) {
@@ -114,21 +116,23 @@ function filterRowsForDayStrict(rows, dayKey) {
     }
   }
   // Produce a shallow copy adding a computedDay field we can use in filters
-  return rows.map(r => {
+  return rows.map((r) => {
     const normalized = normalizeDay(r.day ?? r.Day ?? r.giorno ?? r.Giorno);
     let computed = normalized;
     if (!computed || computed === "") {
       const d = (r.date ?? r.Date ?? "").toString().trim();
       if (mapByDate.has(d)) computed = mapByDate.get(d);
     }
-    return {...r, _computedDay: computed || ""};
+    return { ...r, _computedDay: computed || "" };
   });
 }
 
-
 function filterRowsForDay(rows, dayKey) {
   // Prefer computed day if present
-  const getDay = (r) => (r._computedDay !== undefined ? r._computedDay : normalizeDay(r.day ?? r.Day ?? r.giorno ?? r.Giorno));
+  const getDay = (r) =>
+    r._computedDay !== undefined
+      ? r._computedDay
+      : normalizeDay(r.day ?? r.Day ?? r.giorno ?? r.Giorno);
   if (dayKey === "giorno 1") {
     return rows.filter((r) => {
       const d = getDay(r);
@@ -265,7 +269,7 @@ function createChart({ svgId, totalId, dayKey, drawBarsWhenNoData = false }) {
       .selectAll("rect.bar")
       .data(barsData, (d) => d.key)
       .join("rect")
-      .attr("class", "bar")
+      .attr("class", (d) => `bar emo-${d.emo.replace(/\s+/g, "_")}`)
       .attr("x", leftPad)
       .attr("y", (d) => y(d.s) + gap / 2)
       .attr("width", barW)
@@ -299,9 +303,10 @@ function createChart({ svgId, totalId, dayKey, drawBarsWhenNoData = false }) {
     state,
     setData(rows) {
       // Usa il filtro STRICT per data; se non definito, fallback al filtro base
-      const rowsForDay = (typeof filterRowsForDayStrict === 'function')
-        ? filterRowsForDayStrict(rows, dayKey)
-        : filterRowsForDay(rows, dayKey);
+      const rowsForDay =
+        typeof filterRowsForDayStrict === "function"
+          ? filterRowsForDayStrict(rows, dayKey)
+          : filterRowsForDay(rows, dayKey);
       if (state.totalEl) state.totalEl.textContent = String(rowsForDay.length);
       state.slotDominants = computeSlotDominants(rowsForDay);
       measureAndDraw();
@@ -358,3 +363,22 @@ async function loadAndRenderBoth() {
 loadAndRenderBoth();
 setInterval(loadAndRenderBoth, 10 * 60 * 1000);
 // setInterval(loadAndRenderBoth, 10 * 1000); // test rapido
+
+// ---------- Legend interactivity ----------
+d3.selectAll(".emotions li").on("click", function () {
+  const li = d3.select(this);
+  const emoText = li.text().trim();
+  const isActive = li.classed("active");
+  d3.selectAll(".emotions li").classed("active", false);
+  if (isActive) {
+    // reset
+    d3.selectAll(".bar").classed("dimmed", false);
+    return;
+  }
+  li.classed("active", true);
+  d3.selectAll(".bar").classed("dimmed", true);
+  d3.selectAll(`.bar.emo-${emoText.replace(/\s+/g, "_")}`).classed(
+    "dimmed",
+    false
+  );
+});
