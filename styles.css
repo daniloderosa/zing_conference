@@ -1,15 +1,8 @@
 /* ===========================================================================
-Z!NG • EMOTIONAL JOURNEY • styles.css
-- Palette, layout 3 colonne, SVG centrale responsive, due chart a destra.
+Z!NG • EMOTIONAL JOURNEY • styles.css (clean)
+- Layout 3 colonne, SVG centrale responsive, due chart a destra.
 - Legenda fissata in basso nella colonna sinistra.
-- Pensato per schermi ampi; bottom bar fissa.
-- Classi chiave:
-  .layout                → griglia principale 3 colonne
-  .col-left/.center/.right → pannelli
-  .emotions              → legenda (con dot color e click interattivo gestito dal JS)
-  .chart-grid            → due grafici affiancati 1fr/1fr (simmetrici)
-  .bar.dimmed            → attenuazione barre quando si filtra da legenda
-Note: il JS non colora più i box centrali (inner-box); restano con il colore base dell'SVG.
+- Nessuna scrollbar (né orizzontale né verticale).
 ============================================================================ */
 
 :root {
@@ -19,7 +12,7 @@ Note: il JS non colora più i box centrali (inner-box); restano con il colore ba
   --muted: #a3aab8;
   --axis: #aeb7c2;
   --noData: #2a2f3b;
-  --barHeight: 40px;
+  --barHeight: 40px; /* altezza bottombar fissa */
   --barBg: #0c0e12;
   --barBorder: #1a1f29;
 }
@@ -32,32 +25,43 @@ body {
   height: 100%;
   margin: 0;
 }
+
 body {
   background: var(--bg);
   color: var(--text);
   font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue",
     Arial;
-  padding-bottom: var(--barHeight);
+  /* IMPORTANT: niente padding-bottom qui, ci pensa .layout a sottrarre la bottombar */
+  overflow-x: hidden; /* cintura di sicurezza anti-scroll orizzontale */
 }
 
 /* ------- 3-column layout ------- */
 .layout {
   display: grid;
-  grid-template-columns: 0.5fr 2fr 0.9fr; /* sx : centro : dx */
+  /* minmax(0, ...) evita “spanciamenti” orizzontali */
+  grid-template-columns: minmax(0, 9fr) minmax(0, 22fr) minmax(0, 9fr);
   gap: 16px;
-  height: 100vh;
+
+  /* Sottraiamo la bottombar fissa: niente overflow verticale */
+  height: calc(100vh - var(--barHeight));
+
   padding: 16px;
-  padding-bottom: calc(16px + var(--barHeight));
+  /* niente padding-bottom aggiuntivo: causava overflow verticale */
+}
+
+/* Evita che i figli del grid creino overflow orizzontale */
+.layout > * {
+  min-width: 0;
 }
 
 .col {
-  background: var(--panel);
-  border-radius: 12px;
-  padding: 16px;
+  background: none;
+  border-radius: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-height: 0;
+  min-height: 0; /* fondamentale per contenuti flessibili */
 }
 
 /* ------- left column ------- */
@@ -79,6 +83,36 @@ body {
   font-size: 16px;
   color: var(--muted);
   margin-bottom: 8px;
+}
+
+/* howto: icone uniformi + separatore tra 2ª e 3ª voce */
+.howto {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  display: grid;
+  gap: 16px;
+}
+.howto li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.howto img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: brightness(0) invert(1); /* icone bianche */
+}
+.howto li:nth-child(3) {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding-top: 14px;
+}
+
+.helper {
+  margin: 6px 0 0;
+  opacity: 0.9;
 }
 
 .emotions {
@@ -134,13 +168,23 @@ body {
   object-fit: contain;
 }
 
+.room-inner {
+  transition: fill 0.3s ease;
+}
+[id^="inner-"] {
+  stroke: #fff;
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+
 /* ------- right column: two timelines side-by-side ------- */
 .col-right {
   min-height: 0;
 }
+
 .chart-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr; /* keep symmetric */
+  grid-template-columns: 1fr 1fr; /* simmetriche */
   gap: 16px;
   width: 100%;
   height: 100%;
@@ -150,6 +194,13 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+.chart-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  margin-bottom: 8px;
 }
 .chart-wrapper {
   position: relative;
@@ -161,14 +212,6 @@ body {
   inset: 0;
   width: 100%;
   height: 100%;
-}
-
-.chart-header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-  margin-bottom: 8px;
 }
 .chart-footer {
   margin-top: 8px;
@@ -204,7 +247,7 @@ body {
   transition: opacity 0.3s;
 }
 
-/* ------- bottom bar ------- */
+/* ------- bottom bar (fissa) ------- */
 .bottombar {
   position: fixed;
   left: 0;
@@ -260,19 +303,112 @@ body {
   opacity: 0.55;
 }
 
-@media (max-width: 1400px) {
-  .layout {
-    grid-template-columns: 0.6fr 2fr 0.8fr;
+/* ------- responsive tweak ------- */
+/* ---- Colonna sinistra: layout stabile, legenda in basso ---- */
+.col-left {
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* evita overflow del contenitore */
+  gap: 12px; /* spazio uniforme tra blocchi */
+}
+
+/* header + intro + howto + helper scorrono naturalmente */
+.col-left > * {
+  min-height: 0;
+}
+
+/* legenda sempre in basso */
+.col-left .emotions {
+  margin-top: auto;
+}
+
+/* how-to: icone uguali e testi allineati senza accavallarsi */
+.howto {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.howto li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.howto img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  flex: 0 0 28px;
+  filter: brightness(0) invert(1);
+}
+.howto li:nth-child(3) {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding-top: 14px;
+}
+
+/* legenda: elenco pulito */
+.emotions h3 {
+  margin: 0 0 8px;
+}
+.emotions ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.emotions li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.emotions i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--c);
+  flex: 0 0 12px;
+}
+
+/* ---- (OPZIONALE) Applica le proporzioni Figma SOLO su viewport alti ----
+   Usiamo min-height in % per non schiacciare il contenuto.
+   Se l'altezza è minore, si torna al flusso naturale sopra.
+*/
+@media (min-height: 920px) {
+  .col-left {
+    gap: 12px;
   }
+  .col-left h1 {
+    min-height: 10.36%;
+  } /* logo+title */
+  .col-left .intro {
+    min-height: 4.65%;
+  }
+  .col-left .howto {
+    min-height: 17.75%;
+  }
+  .col-left .helper {
+    min-height: 6.98%;
+  }
+  .col-left .emotions {
+    min-height: 34.48%;
+    margin-top: 0;
+  } /* rispetta quote */
 }
 
-.room-inner {
-  transition: fill 0.3s ease;
+/* --- Colonna destra: contenuto grafici largo 325 su 405 => 80.25% --------- */
+.col-right .charts {
+  width: 80.25%;
+  margin-left: auto; /* allinea a destra come nel mock */
 }
-
-/* styles.css */
-[id^="inner-"] {
-  stroke: #fff;
-  stroke-width: 2px;
-  vector-effect: non-scaling-stroke; /* il bordo resta leggibile anche con zoom/resize */
+.col-right .days-header {
+  width: 80.25%;
+  margin-left: auto;
+}
+.col-right .right-title {
+  /* il titolo resta a tutta colonna: se lo vuoi allineare al blocco grafici,
+     scommenta le due righe seguenti */
+  /* width: 80.25%;
+  margin-left: auto; */
 }
