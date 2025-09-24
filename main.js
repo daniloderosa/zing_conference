@@ -521,3 +521,158 @@ d3.selectAll(".emotions li").on("click", function () {
     d3.selectAll(".bar").classed("dimmed", (d) => (d.emo || "—") !== emotion);
   }
 });
+
+// === [SVG inner rooms: init + legend sync] ===================================
+(function () {
+  // 1) Colleziona i "riquadri interni" dell'SVG e salva il fill originale
+  //    - Robusto: cerca classi/attributi se presenti; altrimenti riconosce alcuni fill scuri noti
+  function collectInnerRooms() {
+    // Trova lo SVG centrale (inline)
+    const center =
+      document.querySelector(".col.col-center svg") ||
+      document.querySelector(".center-map svg") ||
+      document.querySelector("main .col-center svg") ||
+      document.querySelector("svg"); // fallback
+    if (!center) return [];
+
+    const TARGET_HEX = "#260f30"; // selezioniamo SOLO questi
+
+    // Prendiamo solo rettangoli o path potenzialmente “interni”
+    const candidates = Array.from(
+      center.querySelectorAll('[data-role="inner"], .inner-box, rect, path')
+    );
+
+    const inner = [];
+    for (const el of candidates) {
+      const cls = (el.getAttribute("class") || "").toLowerCase();
+      const role = (el.getAttribute("data-role") || "").toLowerCase();
+      const fill = (el.getAttribute("fill") || "").trim().toLowerCase();
+
+      // Regole di targeting (molto ristrette):
+      // 1) marcati come inner tramite attributo/classe
+      // 2) OPPURE fill esatto #260f30
+      const isExplicitInner = role === "inner" || /\binner-box\b/.test(cls);
+      const isTargetFill = fill === TARGET_HEX;
+
+      if (isExplicitInner || isTargetFill) {
+        el.classList.add("room-inner");
+        if (!el.dataset.defaultFill) {
+          // salva il fill originale (se fosse vuoto, mettiamo quello attuale)
+          el.dataset.defaultFill = fill || "#260f30";
+        }
+        inner.push(el);
+      }
+    }
+
+    // Facoltativo: se vuoi essere ULTRA rigoroso solo sui rettangoli,
+    // filtra: return inner.filter(n => n.tagName.toLowerCase() === 'rect');
+    return inner;
+  }
+
+  // Stato locale (indipendente dalle barre: non interferiamo con la tua logica esistente)
+  let INNER_NODES = [];
+  let selectedEmotionForRooms = null;
+
+  function resetInnerRooms() {
+    INNER_NODES.forEach((n) => {
+      const orig = n.dataset.defaultFill || "#000000";
+      n.setAttribute("fill", orig);
+    });
+  }
+
+  function colorInnerRooms(color) {
+    INNER_NODES.forEach((n) => n.setAttribute("fill", color));
+  }
+
+  // 2) Hook iniziale dopo che l’HTML è pronto
+  function initInnerRoomsOnce() {
+    if (INNER_NODES.length) return; // già fatto
+    INNER_NODES = collectInnerRooms();
+    // Non coloriamo nulla: lasciamo i fill "di fabbrica" (default dell'SVG)
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initInnerRoomsOnce, {
+      once: true,
+    });
+  } else {
+    initInnerRoomsOnce();
+  }
+
+  // 3) Disattiva eventuale colorazione "dominante per area" se presente
+  //    (in alcune versioni c’era colorRoomBordersByTopEmotion(...))
+  if (typeof window.colorRoomBordersByTopEmotion === "function") {
+    window.colorRoomBordersByTopEmotion = function noop() {};
+  }
+
+  // 4) Listener sulla legenda (.emotions o .legend)
+  function findLegendRoot() {
+    return (
+      document.querySelector(".emotions") ||
+      document.querySelector(".legend") ||
+      null
+    );
+  }
+  function getLegendEmotion(li) {
+    // prova data-attribute, altrimenti testo
+    const raw =
+      (li.dataset && (li.dataset.emotion || li.dataset.value)) ||
+      li.getAttribute("data-emotion") ||
+      li.textContent ||
+      "";
+    return raw.trim();
+  }
+  function getLegendColor(li, emotionLabel) {
+    // 1) prova CSS var --c sul <li>
+    let c = getComputedStyle(li).getPropertyValue("--c")?.trim();
+    if (c) return c;
+    // 2) prova su un figlio con .dot (o qualunque figlio che esponga --c)
+    const dot = li.querySelector('.dot,[style*="--c"]');
+    if (dot) {
+      c = getComputedStyle(dot).getPropertyValue("--c")?.trim();
+      if (c) return c;
+    }
+    // 3) fallback: mappa EMO_COLORS (normalizza la label alla capitalizzazione della mappa)
+    const canon =
+      emotionLabel.charAt(0).toUpperCase() +
+      emotionLabel.slice(1).toLowerCase();
+    return EMO_COLORS.get(canon) || "#999";
+  }
+
+  // (Rimpiazza il vecchio listener con questo)
+  const legendRoot = findLegendRoot();
+  if (legendRoot) {
+    legendRoot.addEventListener(
+      "click",
+      (ev) => {
+        const li = ev.target.closest("li");
+        if (!li || !legendRoot.contains(li)) return;
+
+        // assicurati di avere i nodi delle stanze
+        if (!INNER_NODES.length) INNER_NODES = collectInnerRooms();
+
+        const emotionLabel = getLegendEmotion(li);
+        if (!emotionLabel) return;
+        const color = getLegendColor(li, emotionLabel);
+
+        // toggle: stessa emozione -> reset, altrimenti colora
+        if (
+          selectedEmotionForRooms &&
+          selectedEmotionForRooms === emotionLabel
+        ) {
+          selectedEmotionForRooms = null;
+          resetInnerRooms();
+        } else {
+          selectedEmotionForRooms = emotionLabel;
+          colorInnerRooms(color);
+        }
+        // NB: non tocchiamo qui la logica "dim" delle barre: resta il tuo handler d3 su .emotions li
+      },
+      true
+    );
+  }
+
+  // 5) Se ricarichi/aggiorni i dati e ricrei lo SVG centrale, richiama initInnerRoomsOnce()
+  //    Esempio: se hai un refresh che rimpiazza il nodo SVG, potresti fare:
+  //    document.addEventListener('data:refreshed', () => { INNER_NODES = []; initInnerRoomsOnce(); });
+})();
