@@ -6,15 +6,17 @@ Z!NG • EMOTIONAL JOURNEY • styles.css (clean)
 ============================================================================ */
 
 :root {
-  --bg: #0f1115;
+  --bg: #e3e3e3;
   --panel: #151821;
-  --text: #f2f4f7;
+  --text: #373737;
   --muted: #a3aab8;
-  --axis: #aeb7c2;
+  --axis: #b0b0b0;
   --noData: #2a2f3b;
   --barHeight: 40px; /* altezza bottombar fissa */
   --barBg: #0c0e12;
   --barBorder: #1a1f29;
+  --divider: #b0b0b0;
+  --grid: #b0b0b0;
 }
 
 * {
