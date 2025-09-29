@@ -436,7 +436,7 @@ function colorRoomBordersByTopEmotion(rows) {
     const candidates = Array.from(svg.querySelectorAll("path[fill]"))
       .filter((p) => {
         const f = (p.getAttribute("fill") || "").trim().toLowerCase();
-        return f === "#260f30";
+        return f === "#260f30" || f === "#d7d7d7";
       })
       .map((p) => {
         let b = null;
@@ -535,7 +535,7 @@ d3.selectAll(".emotions li").on("click", function () {
       document.querySelector("svg"); // fallback
     if (!center) return [];
 
-    const TARGET_HEX = "#260f30"; // selezioniamo SOLO questi
+    const TARGET_HEXES = new Set(["#260f30", "#d7d7d7"]); // selezioniamo SOLO questi
 
     // Prendiamo solo rettangoli o path potenzialmente “interni”
     const candidates = Array.from(
@@ -552,7 +552,7 @@ d3.selectAll(".emotions li").on("click", function () {
       // 1) marcati come inner tramite attributo/classe
       // 2) OPPURE fill esatto #260f30
       const isExplicitInner = role === "inner" || /\binner-box\b/.test(cls);
-      const isTargetFill = fill === TARGET_HEX;
+      const isTargetFill = TARGET_HEXES.has(fill);
 
       if (isExplicitInner || isTargetFill) {
         el.classList.add("room-inner");
@@ -642,6 +642,61 @@ d3.selectAll(".emotions li").on("click", function () {
   // (Rimpiazza il vecchio listener con questo)
   const legendRoot = findLegendRoot();
   if (legendRoot) {
+    // === SVG color swap helpers for theme toggle ===
+    function updateSvgColors(toDark) {
+      const DARK_MAP = {
+        "#c7c7c7": "#21082b",
+        "#f3f3f3": "#281636",
+      };
+      const LIGHT_MAP = {
+        "#21082b": "#c7c7c7",
+        "#281636": "#f3f3f3",
+      };
+      const map = toDark ? DARK_MAP : LIGHT_MAP;
+      const center = document.querySelector(".col-center");
+      if (!center) return;
+      const svg = center.querySelector("svg");
+      if (!svg) return;
+
+      const nodes = svg.querySelectorAll("[fill], [stroke], [style]");
+      nodes.forEach((el) => {
+        // direct fill
+        const f = el.getAttribute("fill");
+        if (f) {
+          const key = f.trim().toLowerCase();
+          if (map[key]) el.setAttribute("fill", map[key]);
+        }
+        // direct stroke
+        const s = el.getAttribute("stroke");
+        if (s) {
+          const key = s.trim().toLowerCase();
+          if (map[key]) el.setAttribute("stroke", map[key]);
+        }
+        // inline style (fill/stroke inside style attr)
+        const st = el.getAttribute("style");
+        if (st) {
+          let newSt = st
+            .replace(/(#C7C7C7)/gi, (m) => map["#C7C7C7"] || m)
+            .replace(/(#f3f3f3)/gi, (m) => map["#f3f3f3"] || m)
+            .replace(/(#21082B)/gi, (m) => map["#21082B"] || m)
+            .replace(/(#230E2C)/gi, (m) => map["#281636"] || m);
+          if (newSt !== st) el.setAttribute("style", newSt);
+        }
+      });
+    }
+
+    function applyThemeToggle(active) {
+      try {
+        const b = document.body;
+        if (active) {
+          b.setAttribute("data-theme", "dark");
+        } else {
+          b.removeAttribute("data-theme");
+        }
+        updateSvgColors(!!active);
+      } catch (e) {}
+    }
+
     legendRoot.addEventListener(
       "click",
       (ev) => {
@@ -662,9 +717,11 @@ d3.selectAll(".emotions li").on("click", function () {
         ) {
           selectedEmotionForRooms = null;
           resetInnerRooms();
+          applyThemeToggle(false);
         } else {
           selectedEmotionForRooms = emotionLabel;
           colorInnerRooms(color);
+          applyThemeToggle(true);
         }
         // NB: non tocchiamo qui la logica "dim" delle barre: resta il tuo handler d3 su .emotions li
       },

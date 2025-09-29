@@ -7,9 +7,9 @@ Z!NG • EMOTIONAL JOURNEY • styles.css (clean)
 
 :root {
   --bg: #e3e3e3;
-  --panel: #151821;
+  --panel: #e3e3e3;
   --text: #373737;
-  --muted: #a3aab8;
+  --muted: #373737;
   --axis: #b0b0b0;
   --noData: #2a2f3b;
   --barHeight: 40px; /* altezza bottombar fissa */
@@ -83,7 +83,7 @@ body {
 }
 .col-left .intro {
   font-size: 16px;
-  color: var(--muted);
+  color: var(--text);
   margin-bottom: 8px;
 }
 
@@ -152,6 +152,7 @@ body {
 
 /* ------- center column (SVG 9 rooms) ------- */
 .col-center {
+  background: var(--panel);
   min-height: 0;
 }
 .center-map {
@@ -260,9 +261,9 @@ body {
   grid-template-columns: 1fr 1fr 1fr;
   align-items: center;
   padding: 0 16px;
-  background: var(--barBg);
-  border-top: 1px solid var(--barBorder);
-  color: var(--muted);
+  background: rgba(255, 255, 255, 0.15);
+  border-top: 1px solid var(--divider);
+  color: var(--text);
   z-index: 100;
 }
 .bottombar .b-left {
@@ -277,15 +278,13 @@ body {
 }
 
 .lang-toggle {
-  background: #131722;
-  border: 1px solid #242b38;
-  color: var(--muted);
-  border-radius: 999px;
-  padding: 6px 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
+  background: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  color: var(--text) !important;
+  font-weight: 600; /* come "Ultimo aggiornamento" */
+  display: inline; /* niente pillola, solo testo */
 }
 .lang-toggle .lang-it,
 .lang-toggle .lang-en {
@@ -322,6 +321,7 @@ body {
 /* legenda sempre in basso */
 .col-left .emotions {
   margin-top: auto;
+  margin-bottom: 0;
 }
 
 /* how-to: icone uguali e testi allineati senza accavallarsi */
@@ -393,10 +393,6 @@ body {
   .col-left .helper {
     min-height: 6.98%;
   }
-  .col-left .emotions {
-    min-height: 34.48%;
-    margin-top: 0;
-  } /* rispetta quote */
 }
 
 /* --- Colonna destra: contenuto grafici largo 325 su 405 => 80.25% --------- */
@@ -408,9 +404,41 @@ body {
   width: 80.25%;
   margin-left: auto;
 }
-.col-right .right-title {
-  /* il titolo resta a tutta colonna: se lo vuoi allineare al blocco grafici,
-     scommenta le due righe seguenti */
-  /* width: 80.25%;
-  margin-left: auto; */
+.howto li:nth-child(3) {
+  border-top: 1px solid #b0b0b0;
+  padding-top: 14px;
+}
+.howto + p {
+  border-top: 1px solid #b0b0b0;
+  padding-top: 14px;
+}
+
+/* ===== Smooth theme transitions ===== */
+html,
+body,
+.layout,
+.col-left,
+.col-center,
+.col-right,
+.bottombar,
+.axis text,
+.axis path,
+.axis line,
+.grid line {
+  transition: background-color 0.35s ease, color 0.35s ease, stroke 0.35s ease;
+}
+
+/* Smooth for SVG fills/strokes */
+.col-center svg * {
+  transition: fill 0.35s ease, stroke 0.35s ease;
+}
+
+/* ===== Dark theme (activate via body[data-theme="dark"]) ===== */
+body[data-theme="dark"] {
+  --bg: #260f30;
+  --text: #ffffff;
+  --divider: #67576e;
+  --axis: #67576e;
+  --grid: #67576e;
+  --panel: #260f30; /* central column panel in dark */
 }
