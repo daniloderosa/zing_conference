@@ -17,6 +17,7 @@ Z!NG • EMOTIONAL JOURNEY • styles.css (clean)
   --barBorder: #1a1f29;
   --divider: #b0b0b0;
   --grid: #b0b0b0;
+  --icon-color: #373737; /* tema chiaro */
 }
 
 * {
@@ -105,7 +106,6 @@ body {
   height: 28px;
   object-fit: contain;
   flex-shrink: 0;
-  filter: brightness(0) invert(1); /* icone bianche */
 }
 .howto li:nth-child(3) {
   border-top: 1px solid rgba(255, 255, 255, 0.2);
@@ -425,12 +425,33 @@ body,
 .axis path,
 .axis line,
 .grid line {
-  transition: background-color 0.35s ease, color 0.35s ease, stroke 0.35s ease;
+  transition: background-color 0.35s ease, stroke 0.35s ease; /* niente color */
 }
 
-/* Smooth for SVG fills/strokes */
+/* Smooth per SVG */
 .col-center svg * {
   transition: fill 0.35s ease, stroke 0.35s ease;
+}
+
+/* --- Niente transizioni sui testi --- */
+.col-center svg text,
+.axis text,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+li,
+span,
+small,
+a,
+button,
+label,
+input,
+textarea {
+  transition: none !important;
 }
 
 /* ===== Dark theme (activate via body[data-theme="dark"]) ===== */
@@ -441,4 +462,138 @@ body[data-theme="dark"] {
   --axis: #67576e;
   --grid: #67576e;
   --panel: #260f30; /* central column panel in dark */
+  --icon-color: #ffffff; /* tema scuro */
+}
+
+/* ===== Left column proportions (Option B: baseline grid unchanged) ===== */
+:root {
+  /* From Figma @1920px, normalized to % of the left column */
+  --leftcol-icon: 21.5%;
+  --leftcol-text: 61.2%;
+  --leftcol-gap: 5.77%; /* middle empty space (between icon and text) */
+  --leftcol-pad: 5.77%; /* inner side paddings (left & right) */
+}
+
+/* Keep the existing grid-template-columns as-is; we only change the internal layout */
+.col-left {
+  /* distribute the remaining "empty" area to the sides so it inherits the background */
+  padding-left: var(--leftcol-pad);
+  padding-right: var(--leftcol-pad);
+}
+
+/* Each how-to row becomes a 2-col grid: [icon | text] with a % gap */
+.col-left .howto {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  row-gap: clamp(8px, 1.2vh, 16px);
+}
+
+.col-left .howto > li {
+  display: grid;
+  grid-template-columns: var(--leftcol-icon) var(--leftcol-text);
+  column-gap: var(--leftcol-gap);
+  align-items: start;
+}
+
+/* Icons scale with the column, capped to the mock value at 1920px */
+.col-left .howto > li img,
+.col-left .howto > li svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 87px; /* mock 87px at 405px inner width */
+}
+
+/* Text block simply fills its track; no transitions on text */
+.col-left .howto > li span {
+  display: block;
+  line-height: 1.25;
+  transition: none !important;
+}
+/* === Uniforma dimensioni icone e centra verticalmente testo === */
+
+/* === Icone: stessa dimensione visiva, testo centrato === */
+:root {
+  --howto-icon: clamp(44px, 5.5vh, 56px);
+} /* regola qui la “taglia” target */
+
+/* ogni riga: [icona | testo]; centro verticalmente */
+.col-left .howto > li {
+  display: grid;
+  grid-template-columns: var(--leftcol-icon) var(--leftcol-text);
+  column-gap: var(--leftcol-gap);
+  align-items: center;
+  min-block-size: var(
+    --howto-icon
+  ); /* l’altezza minima della riga segue l’icona */
+}
+
+/* la cella dell’icona diventa un QUADRATO fisso e centra il contenuto */
+.col-left .howto > li > :first-child {
+  inline-size: var(--howto-icon);
+  block-size: var(--howto-icon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* facoltativo per debug:
+  outline: 1px dashed red;
+  */
+}
+
+/* l’icona (svg/img) riempie la cella ma senza deformarsi */
+.col-left .howto > li > :first-child svg,
+.col-left .howto > li > :first-child img {
+  max-inline-size: 100%;
+  max-block-size: 100%;
+  width: auto;
+  height: auto;
+}
+
+/* stroke coerente quando scala */
+.col-left .howto > li > :first-child svg * {
+  vector-effect: non-scaling-stroke;
+}
+
+/* testo: centrato verticalmente tramite align-items sopra; niente transizioni */
+.col-left .howto > li span {
+  transition: none !important;
+}
+.col-left .howto svg {
+  color: var(--icon-color); /* currentColor prenderà questo */
+}
+:root {
+  --icon-color: #373737; /* tema chiaro */
+}
+body[data-theme="dark"] {
+  --icon-color: #ffffff; /* tema scuro */
+}
+
+.icon {
+  width: 28px; /* regola in base alla dimensione che vuoi */
+  height: 28px;
+  background-color: var(--icon-color);
+  -webkit-mask: no-repeat center / contain;
+  mask: no-repeat center / contain;
+  display: inline-block;
+  flex: 0 0 28px; /* mantiene la larghezza fissa nella griglia */
+}
+
+/* specifica quale svg usare */
+.icon-lanterna {
+  -webkit-mask-image: url("/assets/icons/Lanterna.svg");
+  mask-image: url("/assets/icons/Lanterna.svg");
+}
+.icon-stanza {
+  -webkit-mask-image: url("/assets/icons/Stanza.svg");
+  mask-image: url("/assets/icons/Stanza.svg");
+}
+.icon-touch-stanza {
+  -webkit-mask-image: url("/assets/icons/Touch stanza.svg");
+  mask-image: url("/assets/icons/Touch stanza.svg");
+}
+.icon-touch-emozione {
+  -webkit-mask-image: url("/assets/icons/Touch emozione.svg");
+  mask-image: url("/assets/icons/Touch emozione.svg");
 }

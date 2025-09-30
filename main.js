@@ -297,7 +297,15 @@ function createChart({ svgId, totalId, dayKey, drawBarsWhenNoData = false }) {
         s.getMinutes()
       ).padStart(2, "0")}`;
       const emo = state.slotDominants.get(key) ?? "—";
-      return { s, next, key, emo, color: EMO_COLORS.get(emo) || NO_DATA_COLOR };
+      const empty = !emo || emo === "—";
+      return {
+        s,
+        next,
+        key,
+        emo,
+        empty,
+        color: empty ? null : EMO_COLORS.get(emo) || NO_DATA_COLOR,
+      };
     });
 
     const gBars = g.append("g").attr("class", "slot-bars");
@@ -307,13 +315,18 @@ function createChart({ svgId, totalId, dayKey, drawBarsWhenNoData = false }) {
       .join("rect")
       .attr(
         "class",
-        (d) => `bar emo-${String(d.emo || "").replace(/\s+/g, "_")}`
+        (d) =>
+          `bar ${d.empty ? "empty" : ""} emo-${String(d.emo || "").replace(
+            /\s+/g,
+            "_"
+          )}`
       )
       .attr("x", leftPad)
       .attr("y", (d) => y(d.s) + gap / 2)
       .attr("width", barW)
       .attr("height", (d) => Math.max(1, y(d.next) - y(d.s) - gap))
-      .attr("fill", (d) => d.color);
+      .attr("fill", (d) => (d.empty ? null : d.color))
+      .style("fill", (d) => (d.empty ? "var(--bg)" : null));
 
     sel
       .append("title")
