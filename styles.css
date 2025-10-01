@@ -582,18 +582,18 @@ body[data-theme="dark"] {
 
 /* specifica quale svg usare */
 .icon-lanterna {
-  -webkit-mask-image: url("/assets/icons/Lanterna.svg");
-  mask-image: url("/assets/icons/Lanterna.svg");
+  -webkit-mask-image: url("./assets/icons/Lanterna.svg");
+  mask-image: url("./assets/icons/Lanterna.svg");
 }
 .icon-stanza {
-  -webkit-mask-image: url("/assets/icons/Stanza.svg");
-  mask-image: url("/assets/icons/Stanza.svg");
+  -webkit-mask-image: url("./assets/icons/Stanza.svg");
+  mask-image: url("./assets/icons/Stanza.svg");
 }
 .icon-touch-stanza {
-  -webkit-mask-image: url("/assets/icons/Touch stanza.svg");
-  mask-image: url("/assets/icons/Touch stanza.svg");
+  -webkit-mask-image: url("./assets/icons/Touch stanza.svg");
+  mask-image: url("./assets/icons/Touch stanza.svg");
 }
 .icon-touch-emozione {
-  -webkit-mask-image: url("/assets/icons/Touch emozione.svg");
-  mask-image: url("/assets/icons/Touch emozione.svg");
+  -webkit-mask-image: url("./assets/icons/Touch emozione.svg");
+  mask-image: url("./assets/icons/Touch emozione.svg");
 }
