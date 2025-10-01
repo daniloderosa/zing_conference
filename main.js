@@ -25,8 +25,9 @@ Dalla prossima modifica del file main.js puoi rimuovere il commento iniziale.
 
 const margin = { top: 20, right: 20, bottom: 20, left: 50 };
 
-const SHEET_ID = "1hoAy9ybrFpp_CDOyyLALOmF1S4CwTN20c_WOyeVeAQ8";
-const SHEET_NAME = "risposte";
+//const SHEET_ID = "1hoAy9ybrFpp_CDOyyLALOmF1S4CwTN20c_WOyeVeAQ8";
+const SHEET_ID = "1pDjRrWJLUwri0MbmjztUIIkhnmo6DDm0mpv5sDhFOWc";
+const SHEET_NAME = "FEED";
 function csvUrl() {
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(
     SHEET_NAME
@@ -34,10 +35,10 @@ function csvUrl() {
 }
 
 const ROOM_AREA_ORDER = [
-  "Project Management AI",
-  "Ameca",
+  "Agenti AI Back Office",
+  "Synergy Map",
   "The Balance Tower",
-  "Hyperchat",
+  "Agenti AI Su Misura",
   "Deepfake",
   "Presenza Digitale",
   "Retail Multimedia",
@@ -383,10 +384,40 @@ const chartDay2 = createChart({
 });
 
 /* ---------- Fetch & render ---------- */
+/* ---------- Fetch & render ---------- */
 async function loadAndRenderBoth() {
   try {
-    let rows = await d3.csv(csvUrl());
+    // 1) fetch grezzo
+    // 1) fetch grezzo
+    let raw = await d3.csv(csvUrl());
+
+    // 2) normalizza: usa direttamente FEED (date/time_local), con fallback da timestamp se servisse
+    let rows = raw.map((r) => {
+      // campi già pronti dal tab FEED
+      let d = (r.date || r.Date || "").trim();
+      let t = (r.time_local || r.time || r.Time || "").trim();
+
+      // fallback: se manca qualcosa, prova a derivarlo da "timestamp"
+      if (!d || !t) {
+        const ts = (r.timestamp || r.Timestamp || "").trim();
+        if (ts) {
+          const [dd, tt = ""] = ts.split(" ");
+          if (!d) d = dd || "";
+          if (!t) t = tt.slice(0, 5) || "";
+        }
+      }
+
+      return {
+        ...r,
+        date: d, // YYYY-MM-DD (usato dai filtri STRICT)
+        time: t, // HH:MM
+        time_local: t, // usato da computeSlotDominants()
+      };
+    });
+
+    // 3) aggiungi _computedDay se serve (usa 'date' appena calcolata)
     rows = assignDaysByDate(rows);
+
     console.log(
       "[DBG] fetched rows:",
       rows.length,
@@ -402,12 +433,34 @@ async function loadAndRenderBoth() {
     const tsEl = document.getElementById("last-update");
     if (tsEl) tsEl.textContent = ts;
 
-    chartDay1.setData(rows);
-    chartDay2.setData(rows);
+    // 4) render
+    // ---- split per giorno (o, se 'giorno' manca, per data distinta) ----
+    const dates = Array.from(
+      new Set(rows.map((r) => r.date).filter(Boolean))
+    ).sort();
+    const day1Date = dates[0] || null;
+    const day2Date = dates[1] || null;
 
-    // apply room border coloring by top emotion
+    const rowsDay1 = rows.filter(
+      (r) => String(r.giorno) === "1" || (day1Date && r.date === day1Date)
+    );
+
+    const rowsDay2 = rows.filter(
+      (r) => String(r.giorno) === "2" || (day2Date && r.date === day2Date)
+    );
+
+    console.log("[DBG] day1:", rowsDay1.length, "day2:", rowsDay2.length);
+
+    // (opzionale) svuota prima, se i componenti non rimuovono da soli
+    if (chartDay1.clear) chartDay1.clear();
+    if (chartDay2.clear) chartDay2.clear();
+
+    chartDay1.setData(rowsDay1);
+    chartDay2.setData(rowsDay2);
+    // (eventuale) colorazione riquadri interni
     colorRoomBordersByTopEmotion(rows);
   } catch (e) {
+    console.error("loadAndRenderBoth failed:", e);
     chartDay1.setData([]);
     chartDay2.setData([]);
     const tsEl = document.getElementById("last-update");
@@ -519,7 +572,7 @@ function colorRoomBordersByTopEmotion(rows) {
 }
 
 loadAndRenderBoth();
-setInterval(loadAndRenderBoth, 10 * 60 * 1000);
+setInterval(loadAndRenderBoth, 60 * 1000);
 // setInterval(loadAndRenderBoth, 10 * 1000); // test rapido
 
 // ------- Legend interaction: highlight bars by emotion -------
