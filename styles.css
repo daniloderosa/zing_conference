@@ -154,6 +154,8 @@ body {
 .col-center {
   background: var(--panel);
   min-height: 0;
+
+  position: relative;
 }
 .center-map {
   flex: 1;
@@ -596,4 +598,94 @@ body[data-theme="dark"] {
 .icon-touch-emozione {
   -webkit-mask-image: url("./assets/icons/Touch emozione.svg");
   mask-image: url("./assets/icons/Touch emozione.svg");
+}
+
+/* ===== Overlay stanza centrale (assoluto con fade) ===== */
+#room-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+  z-index: 1;
+}
+#room-overlay.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+#room-overlay .room-bg {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#room-overlay svg {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  display: block;
+}
+.room-back {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+}
+.room-back button {
+  background: none;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+}
+
+/* === Overlay metrics (header numerico + barra) === */
+.room-metrics {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  text-align: right;
+  color: var(--text);
+  z-index: 2;
+}
+.room-header {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.room-header .divider {
+  margin: 0 4px;
+}
+.room-header .label {
+  margin-left: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+/* barra percentuale: niente angoli arrotondati */
+.room-bar {
+  width: var(--room-bar-width, 220px);
+  height: 18px;
+  background: #ffffff;
+  border: 1px solid var(--divider);
+  border-radius: 0; /* <- rimuove arrotondamento */
+  overflow: hidden;
+}
+.room-bar #room-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--text);
+  transition: width 0.35s ease;
+  border-radius: 0; /* <- rimuove arrotondamento */
+}
+.room-metrics-emotion {
+  margin-top: 10px;
+}
+.room-metrics-emotion .room-bar #emo-bar-fill {
+  background: var(--accent, var(--text)); /* puoi cambiare colore */
 }

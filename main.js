@@ -1,3 +1,32 @@
+// --- Helpers for theme and colors ---
+function getCssVar(name) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name);
+  return v && v.trim() ? v.trim() : null;
+}
+function getEmotionColor(emotionLabel) {
+  try {
+    // try to read from legend item
+    const li = Array.from(document.querySelectorAll(".emotions li")).find(
+      (n) => {
+        const lab = (n.dataset.emotion || n.textContent || "")
+          .toString()
+          .trim();
+        return lab === emotionLabel;
+      }
+    );
+    if (li) {
+      const cs = getComputedStyle(li);
+      // try background-color, else color
+      const bg = cs.getPropertyValue("background-color");
+      const col = cs.getPropertyValue("color");
+      if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") return bg;
+      if (col) return col;
+    }
+  } catch (e) {}
+  // fallback to text color var
+  return getCssVar("--text") || "#000";
+}
+
 /* ===========================================================================
 Z!NG • EMOTIONAL JOURNEY • main.js (FULL, COMMENTED)
 Questo file è COMPLETO. Contiene tutte le righe di codice precedentemente presenti,
@@ -42,7 +71,7 @@ const ROOM_AREA_ORDER = [
   "Deepfake",
   "Presenza Digitale",
   "Retail Multimedia",
-  "Ok... La Promo è Giusta",
+  "Ok... La promo è giusta",
   "Z Factor",
 ];
 
@@ -385,6 +414,49 @@ const chartDay2 = createChart({
 
 /* ---------- Fetch & render ---------- */
 /* ---------- Fetch & render ---------- */
+
+// Apply theme-dependent colors to the two stacked bars.
+// For first bar: in dark -> fill white, background = var(--bg). In light -> fill var(--text), background white.
+// For second bar when emotion selected: in dark -> background = var(--bg), fill = emotion color. In light -> default styles.
+function applyBarThemeStyles(selectedEmotionLabel) {
+  try {
+    const isDark = document.body.getAttribute("data-theme") === "dark";
+    const bar1 = document.querySelector(
+      "#room-overlay .room-metrics .room-bar"
+    );
+    const bar1Fill = document.getElementById("room-bar-fill");
+    const bar2 = document.querySelector(
+      "#room-overlay .room-metrics-emotion .room-bar"
+    );
+    const bar2Fill = document.getElementById("emo-bar-fill");
+    if (bar1 && bar1Fill) {
+      if (isDark) {
+        bar1.style.background = getCssVar("--bg") || "#2b2b2b";
+        bar1Fill.style.background = "#fff";
+      } else {
+        bar1.style.background = "#fff";
+        bar1Fill.style.background = getCssVar("--text") || "#000";
+      }
+    }
+    if (bar2 && bar2Fill) {
+      if (isDark) {
+        bar2.style.background = getCssVar("--bg") || "#2b2b2b";
+        if (selectedEmotionLabel) {
+          bar2Fill.style.background = getEmotionColor(selectedEmotionLabel);
+        } else {
+          bar2Fill.style.background = getCssVar("--text") || "#fff";
+        }
+      } else {
+        // light theme: use default CSS (do not force), but ensure reset if previously forced
+        bar2.style.background = "";
+        bar2Fill.style.background = "";
+      }
+    }
+  } catch (e) {
+    console.warn("applyBarThemeStyles failed", e);
+  }
+}
+
 async function loadAndRenderBoth() {
   try {
     // 1) fetch grezzo
@@ -449,6 +521,16 @@ async function loadAndRenderBoth() {
       (r) => String(r.giorno) === "2" || (day2Date && r.date === day2Date)
     );
 
+    // Expose rows & fields for overlay/logging
+    try {
+      window.ZING = window.ZING || {};
+      window.ZING.rows = rows;
+      window.ZING.areaField = detectAreaField(rows);
+      window.ZING.emoField = detectEmotionField(rows);
+      window.ZING.totalCount = rows.length;
+    } catch (e) {
+      console.warn("ZING expose failed", e);
+    }
     console.log("[DBG] day1:", rowsDay1.length, "day2:", rowsDay2.length);
 
     // (opzionale) svuota prima, se i componenti non rimuovono da soli
@@ -469,6 +551,16 @@ async function loadAndRenderBoth() {
 }
 
 // ---- Color #260F30 inner rectangles by top emotion per area ----
+
+// === Normalizers ===
+function __normArea(v) {
+  const s = (v ?? "").toString().trim();
+  return s === "Ok.. La Promo è Giusta" ? "Ok... La promo è giusta" : s;
+}
+function __normEmo(v) {
+  return (v ?? "").toString().trim();
+}
+
 function detectAreaField(rows) {
   if (!rows || !rows.length) return null;
   const keys = Object.keys(rows[0]);
@@ -488,6 +580,66 @@ function detectAreaField(rows) {
   ];
   return candidates.find((k) => keys.includes(k)) || null;
 }
+// === Log emotions distribution for a given area (using real feed rows) ===
+function logEmotionsForArea(areaName) {
+  try {
+    const rows = window.ZING && window.ZING.rows ? window.ZING.rows : [];
+    if (!rows.length) {
+      console.warn(
+        "[ROOM] No rows loaded yet; cannot compute emotions for",
+        areaName
+      );
+      return;
+    }
+    const areaField =
+      window.ZING && window.ZING.areaField
+        ? window.ZING.areaField
+        : detectAreaField(rows);
+    const emoField =
+      window.ZING && window.ZING.emoField
+        ? window.ZING.emoField
+        : detectEmotionField(rows);
+    if (!areaField || !emoField) {
+      console.warn("[ROOM] Missing area/emotion field; abort.", {
+        areaField,
+        emoField,
+      });
+      return;
+    }
+    const normArea = (v) => {
+      const s = (v ?? "").toString().trim();
+      return s === "Ok.. La Promo è Giusta" ? "Ok... La promo è giusta" : s;
+    };
+    const normEmo = (v) => (v ?? "").toString().trim();
+
+    const rowsInArea = rows.filter((r) => normArea(r[areaField]) === areaName);
+    const totalAll = rows.length;
+    const totalArea = rowsInArea.length;
+
+    const emoCounts = new Map();
+    for (const r of rowsInArea) {
+      const e = normEmo(r[emoField]);
+      emoCounts.set(e, (emoCounts.get(e) || 0) + 1);
+    }
+
+    const obj = {};
+    emoCounts.forEach((v, k) => (obj[k] = v));
+    console.group(`[ROOM] ${areaName}`);
+    console.log("Reazioni stanza:", totalArea, "/ Totale:", totalAll);
+    console.table(obj);
+    // Percentuali sulla stanza
+    const pct = {};
+    Object.keys(obj).forEach((k) => {
+      pct[k] = totalArea ? ((obj[k] / totalArea) * 100).toFixed(1) + "%" : "0%";
+    });
+    console.log("Percentuali sulla stanza:");
+    console.table(pct);
+    console.groupEnd();
+  } catch (e) {
+    console.warn("logEmotionsForArea failed:", e);
+  }
+}
+
 function detectEmotionField(rows) {
   if (!rows || !rows.length) return null;
   const keys = Object.keys(rows[0]);
@@ -536,7 +688,7 @@ function colorRoomBordersByTopEmotion(rows) {
       const areaRaw = (r[areaField] ?? "").toString().trim();
       const area =
         areaRaw === "Ok.. La Promo è Giusta"
-          ? "Ok... La Promo è Giusta"
+          ? "Ok... La promo è giusta"
           : areaRaw;
       const emo = (r[emoField] ?? "").toString().trim();
       if (!area || !emo) continue;
@@ -578,13 +730,33 @@ setInterval(loadAndRenderBoth, 60 * 1000);
 // ------- Legend interaction: highlight bars by emotion -------
 d3.selectAll(".emotions li").on("click", function () {
   const li = d3.select(this);
-  const emotion = li.text().trim();
+
+  const emotion = (li.attr("data-emotion") || li.text()).trim();
+  if (window.ZING && window.ZING.currentArea) {
+    updateEmotionMetrics(window.ZING.currentArea, emotion);
+    applyBarThemeStyles(emotion);
+
+    // Safe no-op to avoid ReferenceError if layout helper is missing
+    function positionRoomMetrics() {
+      /* TODO: layout metrics blocks if needed */
+    }
+
+    requestAnimationFrame(() => positionRoomMetrics());
+  }
+
   const wasActive = li.classed("active");
   d3.selectAll(".emotions li").classed("active", false);
   d3.selectAll(".bar").classed("dimmed", false);
   if (!wasActive) {
+    // aggiorna seconda barra in base all'emozione cliccata
+    if (window.ZING && window.ZING.currentArea) {
+      updateEmotionMetrics(window.ZING.currentArea, emotion);
+    }
     li.classed("active", true);
     d3.selectAll(".bar").classed("dimmed", (d) => (d.emo || "—") !== emotion);
+  } else {
+    const blk = document.querySelector(".room-metrics-emotion");
+    if (blk) blk.style.display = "none";
   }
 });
 
@@ -654,6 +826,95 @@ d3.selectAll(".emotions li").on("click", function () {
   function initInnerRoomsOnce() {
     if (INNER_NODES.length) return; // già fatto
     INNER_NODES = collectInnerRooms();
+
+    try {
+      if (Array.isArray(ROOM_AREA_ORDER) && INNER_NODES.length === 9) {
+        INNER_NODES.forEach((n, i) => {
+          n.dataset.areaName = ROOM_AREA_ORDER[i] || "";
+        });
+      }
+    } catch (e) {}
+
+    INNER_NODES.forEach((n) => {
+      n.addEventListener(
+        "click",
+        () => {
+          const areaName = n.dataset.areaName || "";
+          const cm = document.querySelector(".center-map");
+          if (cm) cm.style.display = "none";
+          const overlay = document.getElementById("room-overlay");
+          if (overlay) overlay.classList.add("active");
+          if (areaName) {
+            try {
+              updateOverlayMetrics(areaName);
+              applyBarThemeStyles(null);
+              requestAnimationFrame(() => positionRoomMetrics());
+
+              window.ZING = window.ZING || {};
+              window.ZING.currentArea = areaName;
+              var __blk = document.querySelector(".room-metrics-emotion");
+              if (__blk) __blk.style.display = "none";
+              window.ZING.currentArea = areaName;
+            } catch (e) {}
+          }
+        },
+        true
+      );
+    });
+    // Map inner rooms (TL->BR) to area names
+    try {
+      if (Array.isArray(ROOM_AREA_ORDER) && INNER_NODES.length === 9) {
+        INNER_NODES.forEach((n, i) => {
+          n.dataset.areaName = ROOM_AREA_ORDER[i] || "";
+        });
+      }
+    } catch (e) {}
+
+    // Click => show overlay, update header+bar, and log
+    INNER_NODES.forEach((n) => {
+      n.addEventListener(
+        "click",
+        () => {
+          const areaName = n.dataset.areaName || "";
+          // show overlay
+          const cm = document.querySelector(".center-map");
+          if (cm) cm.style.display = "none";
+          const overlay = document.getElementById("room-overlay");
+          if (overlay) overlay.classList.add("active");
+          // update metrics
+          if (areaName) {
+            updateOverlayMetrics(areaName);
+            applyBarThemeStyles(null);
+            requestAnimationFrame(() => positionRoomMetrics());
+
+            try {
+              logEmotionsForArea && logEmotionsForArea(areaName);
+            } catch (e) {}
+          }
+        },
+        true
+      );
+    });
+    // Map 9 inner nodes to area names using ROOM_AREA_ORDER (top-left to bottom-right)
+    try {
+      if (Array.isArray(ROOM_AREA_ORDER) && INNER_NODES.length === 9) {
+        INNER_NODES.forEach((n, i) => {
+          n.dataset.areaName = ROOM_AREA_ORDER[i] || "";
+        });
+      }
+    } catch (e) {}
+
+    // Click: log emotions for clicked room (console)
+    INNER_NODES.forEach((n) => {
+      n.addEventListener(
+        "click",
+        () => {
+          const areaName = n.dataset.areaName || "";
+          if (areaName) logEmotionsForArea(areaName);
+        },
+        true
+      );
+    });
     // Non coloriamo nulla: lasciamo i fill "di fabbrica" (default dell'SVG)
   }
 
@@ -799,3 +1060,123 @@ d3.selectAll(".emotions li").on("click", function () {
   //    Esempio: se hai un refresh che rimpiazza il nodo SVG, potresti fare:
   //    document.addEventListener('data:refreshed', () => { INNER_NODES = []; initInnerRoomsOnce(); });
 })();
+
+// === Update overlay header (counts) and stacked bar fill ===
+function updateOverlayMetrics(areaName) {
+  try {
+    const rows = window.ZING && window.ZING.rows ? window.ZING.rows : [];
+    const areaField =
+      window.ZING && window.ZING.areaField
+        ? window.ZING.areaField
+        : detectAreaField(rows);
+    const emoField =
+      window.ZING && window.ZING.emoField
+        ? window.ZING.emoField
+        : detectEmotionField(rows);
+    const totalAll =
+      window.ZING && window.ZING.totalCount
+        ? window.ZING.totalCount
+        : rows.length;
+    if (!rows.length || !areaField || !emoField) {
+      console.warn("[OVERLAY] Missing rows/fields", {
+        len: rows.length,
+        areaField,
+        emoField,
+      });
+      return;
+    }
+    const inArea = rows.filter((r) => __normArea(r[areaField]) === areaName);
+    const roomCount = inArea.length;
+
+    // Header numbers (top-right)
+    const roomEl = document.getElementById("room-count");
+    const totalEl = document.getElementById("total-count");
+    if (roomEl) roomEl.textContent = String(roomCount);
+    if (totalEl) totalEl.textContent = String(totalAll);
+
+    // Bar fill (% of total)
+    const perc = totalAll ? (roomCount / totalAll) * 100 : 0;
+    const barFill = document.getElementById("room-bar-fill");
+    if (barFill) barFill.style.width = perc.toFixed(2) + "%";
+  } catch (e) {
+    console.warn("updateOverlayMetrics failed:", e);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const closeBtn = document.getElementById("close-overlay");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      const overlay = document.getElementById("room-overlay");
+      if (overlay) overlay.classList.remove("active");
+      const cm = document.querySelector(".center-map");
+      if (cm) cm.style.display = "flex";
+    });
+  }
+});
+function updateEmotionMetrics(areaName, emotion) {
+  const rows = window.ZING && window.ZING.rows ? window.ZING.rows : [];
+  const areaField =
+    window.ZING && window.ZING.areaField
+      ? window.ZING.areaField
+      : detectAreaField(rows);
+  const emoField =
+    window.ZING && window.ZING.emoField
+      ? window.ZING.emoField
+      : detectEmotionField(rows);
+  if (!rows.length || !areaField || !emoField) return;
+
+  const inArea = rows.filter((r) => __normArea(r[areaField]) === areaName);
+  const roomTotal = inArea.length;
+
+  const emoCount = inArea.filter(
+    (r) => (r[emoField] || "").trim() === emotion
+  ).length;
+
+  // Aggiorna numeri
+  document.getElementById("emo-count").textContent = String(emoCount);
+  document.getElementById("emo-room-total").textContent = String(roomTotal);
+
+  // Aggiorna barra %
+  const perc = roomTotal ? (emoCount / roomTotal) * 100 : 0;
+  document.getElementById("emo-bar-fill").style.width = perc.toFixed(2) + "%";
+
+  // Mostra il blocco
+  document.querySelector(".room-metrics-emotion").style.display = "block";
+}
+
+/* overlayEmotionClickHook */
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    document.querySelectorAll(".emotions li").forEach((li) => {
+      li.addEventListener("click", () => {
+        const emotionLabel = (li.dataset.emotion || li.textContent || "")
+          .toString()
+          .trim();
+        if (window.ZING && window.ZING.currentArea && emotionLabel) {
+          updateEmotionMetrics(window.ZING.currentArea, emotionLabel);
+        }
+      });
+    });
+  } catch (e) {}
+});
+
+// Re-apply bar theme styles on theme changes (body[data-theme])
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    const obs = new MutationObserver(() => {
+      // try to use last selected emotion if any (active in legend)
+      let sel = null;
+      const active = document.querySelector(".emotions li.active");
+      if (active)
+        sel = (active.dataset.emotion || active.textContent || "")
+          .toString()
+          .trim();
+      applyBarThemeStyles(sel);
+    });
+    obs.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+  } catch (e) {}
+});
