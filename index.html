@@ -458,12 +458,44 @@ OBIETTIVO
                 <span id="emo-count">0</span>
                 <span class="divider">/</span>
                 <span id="emo-room-total">0</span>
-                <span class="label">Reazioni in</span>
+                <span class="label">Reazioni in Stanza</span>
               </div>
               <div class="room-bar">
                 <div id="emo-bar-fill"></div>
               </div>
             </div>
+            <section id="hourly-block" class="hourly" hidden>
+              <div class="hourly-header">
+                <h3>Affluenza oraria</h3>
+                <div class="hourly-date-switch">
+                  <button
+                    type="button"
+                    class="hour-btn"
+                    id="hour-prev"
+                    aria-label="Data precedente"
+                  >
+                    ◄
+                  </button>
+                  <span id="hour-date-label">—</span>
+                  <button
+                    type="button"
+                    class="hour-btn"
+                    id="hour-next"
+                    aria-label="Data successiva"
+                  >
+                    ►
+                  </button>
+                </div>
+              </div>
+              <div class="hourly-chart-wrap">
+                <svg
+                  id="hourly-chart"
+                  viewBox="0 0 320 260"
+                  preserveAspectRatio="xMidYMid meet"
+                  aria-label="Affluenza oraria"
+                ></svg>
+              </div>
+            </section>
           </div>
           <div class="room-back">
             <button id="close-overlay">← Stanze</button>

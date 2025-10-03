@@ -689,3 +689,161 @@ body[data-theme="dark"] {
 .room-metrics-emotion .room-bar #emo-bar-fill {
   background: var(--accent, var(--text)); /* puoi cambiare colore */
 }
+/* === Stacked bars colors === */
+:root {
+  /* Stacked 1 (totale) - tema light */
+  --stack1-full: #000000; /* parte piena */
+  --stack1-empty: #ffffff; /* parte vuota */
+  /* Stacked 2 (emotion-selected) - tema dark only */
+  --stack2-empty: #ffffff; /* parte vuota: sempre bianca */
+}
+
+body[data-theme="dark"] {
+  /* Stacked 1 (totale) - tema dark */
+  --stack1-full: #ffffff; /* parte piena */
+  --stack1-empty: #260f30; /* parte vuota */
+  /* Stacked 2: full = colore emozione (in JS), empty = #fff (da var sopra) */
+}
+
+/* Se vuoi mantenere transizione smooth SOLO sul fill delle barre */
+.stack-total .fill,
+.stack-total .empty,
+.stack-selected .fill,
+.stack-selected .empty {
+  transition: fill 0.35s ease;
+}
+/* assicurati che i fill dei due stacked occupino l’altezza della barra */
+#room-bar-fill,
+#emo-bar-fill {
+  height: 100%;
+  display: block; /* per sicurezza, se fosse inline */
+}
+
+/* opzionale: se vuoi essere più generico su qualunque fill dentro .room-bar */
+.room-bar > div {
+  height: 100%;
+}
+#room-overlay .room-bg {
+  /* allow this flex child to shrink even if its content (SVG) is tall */
+  min-height: 0;
+  flex: 1 1 auto;
+}
+#room-overlay .room-back {
+  /* keep the button as its own row */
+  flex: 0 0 auto;
+}
+
+/* === Anchor the TWO metrics groups so their RIGHT EDGE sits on the 70% line of the overlay === */
+/* This positions the whole blocks (header + bar) using the overlay width as reference */
+#room-overlay .room-metrics,
+#room-overlay .room-metrics-emotion {
+  position: absolute; /* ensure both are taken out of flow and referenced to the overlay */
+  right: 20%; /* => right edge at 70% of overlay width */
+  left: auto; /* cancel any previous left rules */
+  z-index: 3; /* above the SVG background */
+}
+
+#room-overlay .room-metrics {
+  top: 14%;
+}
+#room-overlay .room-metrics-emotion {
+  top: 25%;
+  margin-top: 0;
+}
+
+/* Bars keep their own fixed width (e.g. var(--room-bar-width, 220px)); no squeezing occurs */
+/* === Overlay metrics: testo allineato a sinistra === */
+#room-overlay .room-metrics,
+#room-overlay .room-metrics-emotion {
+  text-align: left; /* invece di right */
+  align-items: flex-start; /* per sicurezza se c'è display:flex */
+}
+
+#room-overlay .room-header {
+  text-align: left;
+}
+/* === Hourly (Affluenza oraria) — posizionato sotto i due stacked === */
+#room-overlay #hourly-block {
+  position: absolute;
+  right: 22%; /* stesso ancoraggio del blocco emozione */
+  left: auto; /* importante: niente left */
+  width: 20%; /* stessa larghezza del blocco emozione */
+  top: 45%; /* sotto .room-metrics-emotion (che hai a top:25%) */
+  z-index: 3;
+  text-align: left;
+}
+
+#room-overlay #hourly-block .hourly-header {
+  display: flex;
+  flex-direction: column; /* titolo su, selettore sotto */
+  align-items: flex-start; /* allineati a sinistra */
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+#room-overlay #hourly-block h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+#room-overlay #hourly-block .hourly-date-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#room-overlay #hourly-block .hour-btn {
+  background: none;
+  border: 0;
+  color: var(--text);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-weight: 700;
+}
+
+#room-overlay #hourly-block .hourly-chart-wrap {
+  width: 100%;
+  height: clamp(280px, 30vh, 520px);
+}
+
+#room-overlay #hourly-chart text {
+  fill: var(--text);
+  font-size: 11px;
+}
+
+#room-overlay #hourly-chart .axis line,
+#room-overlay #hourly-chart .axis path {
+  stroke: var(--axis);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+  stroke-width: 1.25; /* asse più marcato */
+}
+
+#room-overlay #hourly-chart .bar {
+  fill: var(--text);
+}
+#room-overlay #hourly-chart .axis text,
+#room-overlay #hourly-chart .hour {
+  font-size: 13.5px; /* etichette più grandi */
+  font-weight: 600; /* più leggibili */
+}
+/* Assi: etichette più leggibili, solo tick (la linea già rimossa via JS) */
+#room-overlay #hourly-chart .axis text {
+  font-size: 13.5px;
+  font-weight: 600;
+  fill: var(--text);
+}
+
+#room-overlay #hourly-chart .axis line {
+  stroke: var(--axis);
+  stroke-width: 1.25;
+  shape-rendering: crispEdges;
+}
+
+#room-overlay #hourly-chart .axis .domain {
+  display: none;
+} /* difesa in profondità */

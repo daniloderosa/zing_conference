@@ -415,47 +415,8 @@ const chartDay2 = createChart({
 /* ---------- Fetch & render ---------- */
 /* ---------- Fetch & render ---------- */
 
-// Apply theme-dependent colors to the two stacked bars.
 // For first bar: in dark -> fill white, background = var(--bg). In light -> fill var(--text), background white.
 // For second bar when emotion selected: in dark -> background = var(--bg), fill = emotion color. In light -> default styles.
-function applyBarThemeStyles(selectedEmotionLabel) {
-  try {
-    const isDark = document.body.getAttribute("data-theme") === "dark";
-    const bar1 = document.querySelector(
-      "#room-overlay .room-metrics .room-bar"
-    );
-    const bar1Fill = document.getElementById("room-bar-fill");
-    const bar2 = document.querySelector(
-      "#room-overlay .room-metrics-emotion .room-bar"
-    );
-    const bar2Fill = document.getElementById("emo-bar-fill");
-    if (bar1 && bar1Fill) {
-      if (isDark) {
-        bar1.style.background = getCssVar("--bg") || "#2b2b2b";
-        bar1Fill.style.background = "#fff";
-      } else {
-        bar1.style.background = "#fff";
-        bar1Fill.style.background = getCssVar("--text") || "#000";
-      }
-    }
-    if (bar2 && bar2Fill) {
-      if (isDark) {
-        bar2.style.background = getCssVar("--bg") || "#2b2b2b";
-        if (selectedEmotionLabel) {
-          bar2Fill.style.background = getEmotionColor(selectedEmotionLabel);
-        } else {
-          bar2Fill.style.background = getCssVar("--text") || "#fff";
-        }
-      } else {
-        // light theme: use default CSS (do not force), but ensure reset if previously forced
-        bar2.style.background = "";
-        bar2Fill.style.background = "";
-      }
-    }
-  } catch (e) {
-    console.warn("applyBarThemeStyles failed", e);
-  }
-}
 
 async function loadAndRenderBoth() {
   try {
@@ -531,7 +492,7 @@ async function loadAndRenderBoth() {
     } catch (e) {
       console.warn("ZING expose failed", e);
     }
-    console.log("[DBG] day1:", rowsDay1.length, "day2:", rowsDay2.length);
+    // console.debug("[DBG] day1:", rowsDay1.length, "day2:", rowsDay2.length);
 
     // (opzionale) svuota prima, se i componenti non rimuovono da soli
     if (chartDay1.clear) chartDay1.clear();
@@ -728,19 +689,32 @@ setInterval(loadAndRenderBoth, 60 * 1000);
 // setInterval(loadAndRenderBoth, 10 * 1000); // test rapido
 
 // ------- Legend interaction: highlight bars by emotion -------
+
 d3.selectAll(".emotions li").on("click", function () {
   const li = d3.select(this);
-
   const emotion = (li.attr("data-emotion") || li.text()).trim();
+
+  // Determine color from legend (CSS var --c) with fallback to EMO_COLORS
+  const liNode = li.node();
+  let emoColor = getEmotionColorFromLegendLi(liNode);
+  if (!emoColor && typeof EMO_COLORS !== "undefined" && EMO_COLORS.get) {
+    const canon =
+      emotion.charAt(0).toUpperCase() + emotion.slice(1).toLowerCase();
+    emoColor = EMO_COLORS.get(canon) || null;
+  }
+
+  // Minimal debug for this test
+  console.log("[Legend click]", { emotion, emoColor });
+
+  // Save selection color globally for theme changes
+  window.__SELECTED_EMOTION_COLOR = emoColor || null;
+
+  // Update overlay metrics if inside a room
   if (window.ZING && window.ZING.currentArea) {
     updateEmotionMetrics(window.ZING.currentArea, emotion);
-    applyBarThemeStyles(emotion);
-
-    // Safe no-op to avoid ReferenceError if layout helper is missing
-    function positionRoomMetrics() {
-      /* TODO: layout metrics blocks if needed */
-    }
-
+    updateStackedBarColors(window.__SELECTED_EMOTION_COLOR);
+    // optional layout function
+    function positionRoomMetrics() {}
     requestAnimationFrame(() => positionRoomMetrics());
   }
 
@@ -748,10 +722,6 @@ d3.selectAll(".emotions li").on("click", function () {
   d3.selectAll(".emotions li").classed("active", false);
   d3.selectAll(".bar").classed("dimmed", false);
   if (!wasActive) {
-    // aggiorna seconda barra in base all'emozione cliccata
-    if (window.ZING && window.ZING.currentArea) {
-      updateEmotionMetrics(window.ZING.currentArea, emotion);
-    }
     li.classed("active", true);
     d3.selectAll(".bar").classed("dimmed", (d) => (d.emo || "—") !== emotion);
   } else {
@@ -844,10 +814,32 @@ d3.selectAll(".emotions li").on("click", function () {
           if (cm) cm.style.display = "none";
           const overlay = document.getElementById("room-overlay");
           if (overlay) overlay.classList.add("active");
+          if (window.updateSvgColors)
+            window.updateSvgColors(
+              document.body.getAttribute("data-theme") === "dark"
+            );
           if (areaName) {
             try {
               updateOverlayMetrics(areaName);
-              applyBarThemeStyles(null);
+              (function () {
+                const active = document.querySelector(".emotions li.active");
+                let c = null;
+                if (active) {
+                  let v = getComputedStyle(active)
+                    .getPropertyValue("--c")
+                    .trim();
+                  if (!v) {
+                    const dot = active.querySelector('i,[style*="--c"]');
+                    if (dot)
+                      v = getComputedStyle(active)
+                        .getPropertyValue("--c")
+                        .trim();
+                  }
+                  c = v || null;
+                }
+                window.__SELECTED_EMOTION_COLOR = c || null;
+                updateStackedBarColors(window.__SELECTED_EMOTION_COLOR);
+              })();
               requestAnimationFrame(() => positionRoomMetrics());
 
               window.ZING = window.ZING || {};
@@ -881,10 +873,28 @@ d3.selectAll(".emotions li").on("click", function () {
           if (cm) cm.style.display = "none";
           const overlay = document.getElementById("room-overlay");
           if (overlay) overlay.classList.add("active");
+          if (window.updateSvgColors)
+            window.updateSvgColors(
+              document.body.getAttribute("data-theme") === "dark"
+            );
           // update metrics
           if (areaName) {
             updateOverlayMetrics(areaName);
-            applyBarThemeStyles(null);
+            (function () {
+              const active = document.querySelector(".emotions li.active");
+              let c = null;
+              if (active) {
+                let v = getComputedStyle(active).getPropertyValue("--c").trim();
+                if (!v) {
+                  const dot = active.querySelector('i,[style*="--c"]');
+                  if (dot)
+                    v = getComputedStyle(active).getPropertyValue("--c").trim();
+                }
+                c = v || null;
+              }
+              window.__SELECTED_EMOTION_COLOR = c || null;
+              updateStackedBarColors(window.__SELECTED_EMOTION_COLOR);
+            })();
             requestAnimationFrame(() => positionRoomMetrics());
 
             try {
@@ -968,6 +978,62 @@ d3.selectAll(".emotions li").on("click", function () {
 
   // (Rimpiazza il vecchio listener con questo)
   const legendRoot = findLegendRoot();
+
+  // === Global SVG recolor (center + overlay) ===
+  (function () {
+    // maps must be lower-case for lookups
+    const DARK_MAP = {
+      "#c7c7c7": "#21082b",
+      "#f3f3f3": "#281636",
+    };
+    const LIGHT_MAP = {
+      "#21082b": "#c7c7c7",
+      "#281636": "#f3f3f3",
+    };
+
+    function lower(s) {
+      return (s || "").trim().toLowerCase();
+    }
+
+    function recolorRootSvg(root, toDark) {
+      if (!root) return;
+      const map = toDark ? DARK_MAP : LIGHT_MAP;
+
+      const nodes = root.querySelectorAll("[fill], [stroke], [style]");
+      nodes.forEach((el) => {
+        const f = el.getAttribute("fill");
+        if (f) {
+          const key = lower(f);
+          if (map[key]) el.setAttribute("fill", map[key]);
+        }
+        const s = el.getAttribute("stroke");
+        if (s) {
+          const key = lower(s);
+          if (map[key]) el.setAttribute("stroke", map[key]);
+        }
+        const st = el.getAttribute("style");
+        if (st) {
+          let replaced = st.replace(/#([0-9a-f]{3}|[0-9a-f]{6})/gi, (m) => {
+            const key = m.toLowerCase();
+            return map[key] || m;
+          });
+          if (replaced !== st) el.setAttribute("style", replaced);
+        }
+      });
+    }
+
+    function updateSvgColors(toDark) {
+      const roots = [
+        document.querySelector(".col-center svg"),
+        document.querySelector("#room-overlay svg"),
+      ].filter(Boolean);
+      roots.forEach((r) => recolorRootSvg(r, !!toDark));
+    }
+
+    // expose
+    window.updateSvgColors = updateSvgColors;
+  })();
+
   if (legendRoot) {
     // === SVG color swap helpers for theme toggle ===
     function updateSvgColors(toDark) {
@@ -1020,7 +1086,7 @@ d3.selectAll(".emotions li").on("click", function () {
         } else {
           b.removeAttribute("data-theme");
         }
-        updateSvgColors(!!active);
+        window.updateSvgColors && window.updateSvgColors(!!active);
       } catch (e) {}
     }
 
@@ -1145,38 +1211,465 @@ function updateEmotionMetrics(areaName, emotion) {
   document.querySelector(".room-metrics-emotion").style.display = "block";
 }
 
-/* overlayEmotionClickHook */
-document.addEventListener("DOMContentLoaded", () => {
-  try {
-    document.querySelectorAll(".emotions li").forEach((li) => {
-      li.addEventListener("click", () => {
-        const emotionLabel = (li.dataset.emotion || li.textContent || "")
-          .toString()
-          .trim();
-        if (window.ZING && window.ZING.currentArea && emotionLabel) {
-          updateEmotionMetrics(window.ZING.currentArea, emotionLabel);
-        }
-      });
-    });
-  } catch (e) {}
-});
+/* overlayEmotionClickHook disabled to avoid duplicate legend listeners */
 
-// Re-apply bar theme styles on theme changes (body[data-theme])
-document.addEventListener("DOMContentLoaded", () => {
+/* =========================================================
+   main.js — gestione colori stacked bar (overlay stanza)
+   Adattato alla struttura di index.html:
+   - Primo stacked (totale):   #room-bar-fill  dentro .room-metrics
+   - Secondo stacked (emo):    #emo-bar-fill   dentro .room-metrics-emotion
+   - Legenda: <aside.col-left> .emotions ul li  con --c sul <i>
+   - Tema: body[data-theme="light" | "dark"]
+   - L’overlay contiene i due blocchi metriche:
+       .room-metrics               (totale)           — sempre presente
+       .room-metrics-emotion       (solo con emo)     — mostrato solo in dark
+   ========================================================= */
+
+/* -----------------------------
+   UTILITIES
+------------------------------*/
+
+/** Legge una CSS custom property da :root */
+function cssVar(name, fallback = null) {
   try {
-    const obs = new MutationObserver(() => {
-      // try to use last selected emotion if any (active in legend)
-      let sel = null;
-      const active = document.querySelector(".emotions li.active");
-      if (active)
-        sel = (active.dataset.emotion || active.textContent || "")
-          .toString()
+    const v = getComputedStyle(document.documentElement)
+      .getPropertyValue(name)
+      .trim();
+    return v || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Ricava il colore emozione da un <li> della legenda (var --c sul <i> o sul li) */
+function getEmotionColorFromLegendLi(li) {
+  if (!li) return null;
+  // 1) CSS var --c sul <li>
+  let c = getComputedStyle(li).getPropertyValue("--c")?.trim();
+  // 2) CSS var --c su eventuale figlio (es. icona puntino)
+  if (!c) {
+    const dot = li.querySelector('i,[style*="--c"]');
+    if (dot) c = getComputedStyle(dot).getPropertyValue("--c")?.trim();
+  }
+  if (c) return c;
+  // 3) Fallback: usa mappa EMO_COLORS in base all'etichetta
+  const label = (li.dataset?.emotion || li.textContent || "").toString().trim();
+  if (label) {
+    // normalizza: Prima maiuscola, resto minuscolo
+    const canon = label.charAt(0).toUpperCase() + label.slice(1).toLowerCase();
+    const m = typeof EMO_COLORS !== "undefined" ? EMO_COLORS : null;
+    if (m && typeof m.get === "function") {
+      const hex = m.get(canon);
+      if (hex) return hex;
+    }
+  }
+  return null;
+}
+
+/** Ritorna 'light' o 'dark' in base al data-theme sul body */
+function getTheme() {
+  const t = document.body.getAttribute("data-theme");
+  return t === "dark" ? "dark" : "light";
+}
+
+/* -----------------------------
+   STACKED BARS COLORING
+------------------------------*/
+
+/**
+ * Aggiorna i colori dei due stacked bar secondo le regole richieste:
+ *  - Primo stacked (totale)
+ *      Light: full=#000000 ; empty=#FFFFFF
+ *      Dark : full=#FFFFFF ; empty=#260F30
+ *  - Secondo stacked (emo, visibile solo quando c'è selezione ED in dark)
+ *      full = colore emozione selezionata ; empty = #FFFFFF
+ *
+ * Nota: gli stacked sono costruiti come <div class="room-bar"><div id="...-fill"></div></div>
+ * per cui la "parte vuota" è il background del contenitore .room-bar,
+ * mentre la "parte piena" è il background del #...-fill.
+ */
+function updateStackedBarColors(selectedEmotionColor = null) {
+  const theme =
+    document.body.getAttribute("data-theme") === "dark" ? "dark" : "light";
+
+  // DOM refs
+  const roomMetricsTotal = document.querySelector(".room-metrics");
+  const roomMetricsEmotion = document.querySelector(".room-metrics-emotion");
+  const roomBar = roomMetricsTotal
+    ? roomMetricsTotal.querySelector(".room-bar")
+    : null;
+  const roomFill = document.getElementById("room-bar-fill");
+  const emoBar = roomMetricsEmotion
+    ? roomMetricsEmotion.querySelector(".room-bar")
+    : null;
+  const emoFill = document.getElementById("emo-bar-fill");
+
+  // Apply colors
+  if (roomBar)
+    roomBar.style.backgroundColor = theme === "dark" ? "#260F30" : "#FFFFFF";
+  if (roomFill)
+    roomFill.style.backgroundColor = theme === "dark" ? "#FFFFFF" : "#000000";
+
+  if (emoBar) emoBar.style.backgroundColor = "#FFFFFF";
+  if (emoFill && selectedEmotionColor)
+    emoFill.style.backgroundColor = selectedEmotionColor;
+
+  // Visibility of second stacked
+  if (roomMetricsEmotion) {
+    const show = theme === "dark" && !!selectedEmotionColor;
+    roomMetricsEmotion.style.display = show ? "" : "none";
+  }
+
+  // Minimal debug for this test only
+  if (emoBar && emoFill) {
+    try {
+      console.log("[Stack2]", {
+        selectedEmotionColor,
+        domEmpty: getComputedStyle(emoBar).backgroundColor,
+        domFull: getComputedStyle(emoFill).backgroundColor,
+      });
+    } catch {}
+  }
+}
+
+/* -----------------------------
+   LEGENDA: CLICK HANDLER
+------------------------------*/
+
+/* -----------------------------
+   THEME CHANGES: osserva data-theme
+------------------------------*/
+
+(function observeTheme() {
+  const mo = new MutationObserver(() => {
+    updateStackedBarColors(window.__SELECTED_EMOTION_COLOR || null);
+    if (window.updateSvgColors)
+      window.updateSvgColors(
+        document.body.getAttribute("data-theme") === "dark"
+      );
+  });
+  mo.observe(document.body, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+})();
+
+/* -----------------------------
+   INIT (al primo load)
+------------------------------*/
+
+(function initOnReady() {
+  const run = () => {
+    updateStackedBarColors(window.__SELECTED_EMOTION_COLOR || null);
+    if (window.updateSvgColors)
+      window.updateSvgColors(
+        document.body.getAttribute("data-theme") === "dark"
+      );
+  };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run, { once: true });
+  } else {
+    run();
+  }
+})();
+
+/* =========================================================
+   NOTE
+   - Questo file non tocca il calcolo delle percentuali/width dei fill;
+     ci pensa la tua logica esistente (imposta width di #room-bar-fill e #emo-bar-fill).
+   - Qui gestiamo solo i COLORI e la visibilità del secondo stacked.
+   - Struttura DOM presa direttamente dal tuo index.html. :contentReference[oaicite:1]{index=1}
+   ========================================================= */
+// === Utils: prendi tutte le righe dal dataset già caricato ===
+function _getAllRows() {
+  const z = window.ZING || {};
+  return z.rows || z.data || z.ALL || z.DATA || z._rows || [];
+}
+
+// Parsing ora "robusto" (accetta "HH:MM", "H.MM", numeri, ecc.)
+function _toHour(v) {
+  if (v == null) return null;
+  const s = String(v).trim();
+  const m = s.match(/^(\d{1,2})[:.\-]?/);
+  if (m) {
+    const h = parseInt(m[1], 10);
+    return isNaN(h) ? null : Math.max(0, Math.min(23, h));
+  }
+  const n = parseInt(s, 10);
+  return isNaN(n) ? null : Math.max(0, Math.min(23, n));
+}
+
+// Raccogli le due date disponibili (stringhe così come arrivano dal foglio)
+function _collectTwoDatesForArea(area) {
+  const rows = _getAllRows();
+  const set = new Set(
+    rows
+      .filter((r) => (r.room || r.stanza || r.area) === area)
+      .map((r) => r.date || r.data || r.giorno || r.Day || r.day)
+      .filter(Boolean)
+  );
+  const arr = Array.from(set);
+  // tieni massimo 2 (ordinamento stringa; se hai _computedDay numerico, puoi usarlo qui)
+  return arr.slice(0, 2);
+}
+
+// Aggrega per ora le reazioni per area + data
+function _groupByHour(area, dateStr) {
+  const rows = _getAllRows().filter((r) => {
+    const a = r.room || r.stanza || r.area;
+    const d = r.date || r.data || r.giorno || r.Day || r.day;
+    return a === area && d === dateStr;
+  });
+
+  const counts = new Map(); // hour -> count
+  rows.forEach((r) => {
+    const h = _toHour(r.time_Local || r.time || r.ora || r.hour || r.Hour);
+    if (h == null) return;
+    counts.set(h, (counts.get(h) || 0) + 1);
+  });
+
+  // Costruisci dataset ordinato per ora
+  const data = Array.from(counts.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([hour, value]) => ({ hour, value }));
+  return data;
+}
+
+// Stato per lo switch data nell’overlay
+window.__HOURLY_STATE__ = { dates: [], idx: 0 };
+
+// Render del grafico a barre orarie (usa D3 se già incluso nel progetto)
+function renderHourlyChart(area) {
+  const block = document.getElementById("hourly-block");
+  if (!block) return;
+
+  // === stato date (due date max), solo per filtrare i dati mostrati ===
+  const state = (window.__HOURLY_STATE__ = window.__HOURLY_STATE__ || {
+    dates: [],
+    idx: 0,
+  });
+  state.dates = _collectTwoDatesForArea(area);
+  if (state.idx >= state.dates.length) state.idx = 0;
+
+  const dateNow = state.dates[state.idx] || null;
+  const label = document.getElementById("hour-date-label");
+  if (label) label.textContent = dateNow || "—";
+
+  block.hidden = !dateNow;
+  if (!dateNow) return;
+
+  // ========== INPUTS TEMA & EMOZIONE ==========
+  const theme =
+    document.body.getAttribute("data-theme") === "dark" ? "dark" : "light";
+
+  // emozione attiva + colore (dal li .active con --c)
+  let selectedEmotionLabel = null;
+  let selectedEmotionColor = null;
+  const activeLi = document.querySelector(".emotions li.active");
+  if (activeLi) {
+    selectedEmotionLabel = (
+      activeLi.dataset.emotion ||
+      activeLi.textContent ||
+      ""
+    ).trim();
+    // prova da CSS var --c sul <li> o sull'icona interna
+    selectedEmotionColor = getComputedStyle(activeLi)
+      .getPropertyValue("--c")
+      .trim();
+    if (!selectedEmotionColor) {
+      const dot = activeLi.querySelector('i,[style*="--c"]');
+      if (dot)
+        selectedEmotionColor = getComputedStyle(dot)
+          .getPropertyValue("--c")
           .trim();
-      applyBarThemeStyles(sel);
+    }
+  }
+
+  const hasSplitBars =
+    theme === "dark" && !!selectedEmotionLabel && !!selectedEmotionColor;
+
+  // ========== DATI ==========
+  // Totale per ora (stanza+data correnti)
+  const rowsAll = _getAllRows().filter((r) => {
+    const a = r.room || r.stanza || r.area;
+    const d = r.date || r.data || r.giorno || r.Day || r.day;
+    return a === area && d === dateNow;
+  });
+
+  const totalMap = new Map(); // hour -> count (tutte le emozioni)
+  rowsAll.forEach((r) => {
+    const h = _toHour(r.time_Local || r.time || r.ora || r.hour || r.Hour);
+    if (h == null) return;
+    totalMap.set(h, (totalMap.get(h) || 0) + 1);
+  });
+
+  // Conteggio per emozione selezionata (ora -> count) SOLO se split attivo
+  const emoMap = new Map();
+  if (hasSplitBars) {
+    rowsAll.forEach((r) => {
+      const lbl = (
+        r.emotion ||
+        r.emo ||
+        r.Emozione ||
+        r.emozione ||
+        r.Emotion ||
+        ""
+      )
+        .toString()
+        .trim();
+      if (!lbl || lbl !== selectedEmotionLabel) return;
+      const h = _toHour(r.time_Local || r.time || r.ora || r.hour || r.Hour);
+      if (h == null) return;
+      emoMap.set(h, (emoMap.get(h) || 0) + 1);
     });
-    obs.observe(document.body, {
-      attributes: true,
-      attributeFilter: ["data-theme"],
-    });
-  } catch (e) {}
-});
+  }
+
+  // === MASSIMO GLOBALE (ASSE X FISSO per sempre: tutte stanze + tutte date) ===
+  const globalMax = (function () {
+    const rows = _getAllRows();
+    let maxV = 0;
+    const counts = new Map(); // (date|room|hour) -> count
+    for (const r of rows) {
+      const d = r.date || r.data || r.giorno || r.Day || r.day;
+      const room = r.room || r.stanza || r.area;
+      const h = _toHour(r.time_Local || r.time || r.ora || r.hour || r.Hour);
+      if (!d || !room || h == null) continue;
+      const key = `${d}||${room}||${h}`;
+      const v = (counts.get(key) || 0) + 1;
+      counts.set(key, v);
+      if (v > maxV) maxV = v;
+    }
+    return maxV;
+  })();
+
+  // ========== RENDER ==========
+  const svg = d3.select("#hourly-chart");
+  svg.selectAll("*").remove();
+
+  const wrapEl = document.querySelector("#hourly-block .hourly-chart-wrap");
+  const W = wrapEl?.clientWidth || 320;
+  const H = wrapEl?.clientHeight || 420;
+  // top più ampio per non tagliare l’asse X
+  const M = { top: 36, right: 32, bottom: 28, left: 34 };
+
+  svg.attr("viewBox", `0 0 ${W} ${H}`);
+
+  const innerW = W - M.left - M.right;
+  const innerH = H - M.top - M.bottom;
+
+  const g = svg.append("g").attr("transform", `translate(${M.left},${M.top})`);
+
+  // Ore fisse 9..18 (righe vuote se 0)
+  const hours = d3.range(9, 19);
+
+  // Scala X condivisa e fissa
+  const x = d3
+    .scaleLinear()
+    .domain([0, Math.max(5, globalMax)]) // almeno 5 per aria
+    .range([0, innerW]);
+
+  // Y a bande
+  const y = d3.scaleBand().domain(hours).range([0, innerH]).padding(0.25);
+
+  // Assi con soli tick
+  const gx = g
+    .append("g")
+    .attr("class", "axis x")
+    .call(d3.axisTop(x).ticks(5).tickSizeInner(6).tickSizeOuter(0));
+  gx.select(".domain").remove();
+
+  const gy = g
+    .append("g")
+    .attr("class", "axis y")
+    .call(d3.axisLeft(y).tickValues(hours).tickSizeInner(6).tickSizeOuter(0));
+  gy.select(".domain").remove();
+
+  // Barre per ogni ora
+  // Se split attivo (dark+emozione) → base bianca (totale) + overlay colore emo
+  // Altrimenti → singola barra neutra (var(--text))
+  const bars = g.append("g");
+
+  hours.forEach((h) => {
+    const total = totalMap.get(h) || 0;
+    const emo = hasSplitBars ? emoMap.get(h) || 0 : 0;
+
+    const yPos = y(h);
+    const barH = y.bandwidth();
+
+    if (hasSplitBars) {
+      // base "vuota" (totale) → bianco
+      bars
+        .append("rect")
+        .attr("x", x(0))
+        .attr("y", yPos)
+        .attr("width", x(total))
+        .attr("height", barH)
+        .attr("fill", "#FFFFFF");
+
+      // overlay "pieno" (emozione) → colore emozione
+      if (emo > 0) {
+        bars
+          .append("rect")
+          .attr("x", x(0))
+          .attr("y", yPos)
+          .attr("width", x(emo))
+          .attr("height", barH)
+          .attr("fill", selectedEmotionColor);
+      }
+    } else {
+      // barra unica (totale) → neutra (usa var(--text) via CSS di default)
+      bars
+        .append("rect")
+        .attr("class", "bar")
+        .attr("x", x(0))
+        .attr("y", yPos)
+        .attr("width", x(total))
+        .attr("height", barH);
+    }
+  });
+}
+
+// wiring bottoni prev/next
+(function wireHourlySwitch() {
+  const prev = document.getElementById("hour-prev");
+  const next = document.getElementById("hour-next");
+  if (!prev || !next) return;
+
+  prev.addEventListener("click", () => {
+    const s = window.__HOURLY_STATE__;
+    if (!s.dates.length) return;
+    s.idx = (s.idx - 1 + s.dates.length) % s.dates.length;
+    if (window.ZING && window.ZING.currentArea) {
+      renderHourlyChart(window.ZING.currentArea);
+    }
+  });
+  next.addEventListener("click", () => {
+    const s = window.__HOURLY_STATE__;
+    if (!s.dates.length) return;
+    s.idx = (s.idx + 1) % s.dates.length;
+    if (window.ZING && window.ZING.currentArea) {
+      renderHourlyChart(window.ZING.currentArea);
+    }
+  });
+})();
+
+// Richiama il render quando apri l’overlay o quando cambi stanza
+// (aggancia dove già gestisci overlay/apertura stanza)
+(function hookHourlyOnOverlay() {
+  const overlay = document.getElementById("room-overlay");
+  if (!overlay) return;
+
+  const mo = new MutationObserver(() => {
+    if (!overlay.hidden && overlay.classList.contains("active")) {
+      const area = (window.ZING && window.ZING.currentArea) || null;
+      if (area) renderHourlyChart(area);
+    }
+  });
+  mo.observe(overlay, {
+    attributes: true,
+    attributeFilter: ["hidden", "class"],
+  });
+})();
+
+// Selezione emozione o cambio tema non influiscono sui conteggi orari;
+// ma se per te cambiano il dataset filtrato, richiama renderHourlyChart(area) anche lì.
