@@ -389,7 +389,11 @@ function createChart({ svgId, totalId, dayKey, drawBarsWhenNoData = false }) {
         typeof filterRowsForDayStrict === "function"
           ? filterRowsForDayStrict(rows, dayKey)
           : filterRowsForDay(rows, dayKey);
-      if (state.totalEl) state.totalEl.textContent = String(rowsForDay.length);
+      if (state.totalEl) {
+        const realCount = rowsForDay.filter(__isRealFeedRow).length;
+        state.totalEl.textContent = String(realCount);
+      }
+
       state.slotDominants = computeSlotDominants(rowsForDay);
       measureAndDraw();
     },
@@ -520,6 +524,14 @@ function __normArea(v) {
 }
 function __normEmo(v) {
   return (v ?? "").toString().trim();
+}
+// Una riga del FEED è “reale” se ha un orario valido (le righe placeholder hanno time_local vuoto)
+function __isRealFeedRow(r) {
+  const t = (r.time_local ?? r.time ?? r.Time ?? "").toString().trim();
+  if (!t) return false;
+  // opzionale: scarta anche se l'ora non è parsabile
+  const m = t.match(/^(\d{1,2})[:.](\d{2})/);
+  return !!m;
 }
 
 function detectAreaField(rows) {
@@ -1493,7 +1505,7 @@ function renderHourlyChart(area) {
   const rowsAll = _getAllRows().filter((r) => {
     const a = r.room || r.stanza || r.area;
     const d = r.date || r.data || r.giorno || r.Day || r.day;
-    return a === area && d === dateNow;
+    return a === area && d === dateNow && __isRealFeedRow(r);
   });
 
   const totalMap = new Map(); // hour -> count (tutte le emozioni)
