@@ -538,6 +538,129 @@ function formatDaySubhead(dateStr) {
     return "—";
   }
 }
+// ——— Area helpers (match robusto per id / slug / name) ———
+function detectAreaField(rows) {
+  // se già esiste nel tuo file, puoi saltare questa funzione
+  const candidates = [
+    "area_id",
+    "areaId",
+    "AreaID",
+    "area_slug",
+    "areaSlug",
+    "AreaSlug",
+    "area",
+    "AreaName",
+    "area_name",
+    "Room",
+    "room",
+    "Zona",
+    "zona",
+    "Postazione",
+    "postazione",
+  ];
+  for (const k of candidates) if (rows.length && k in rows[0]) return k;
+  return null;
+}
+function rowMatchesArea(r, areaKey, areaField) {
+  if (!r || !areaKey) return false;
+  const norm = (v) =>
+    typeof __normArea === "function"
+      ? __normArea(v)
+      : (v ?? "").toString().trim();
+  const key = norm(areaKey);
+
+  // usa il campo rilevato se disponibile
+  if (areaField && r[areaField] != null) return norm(r[areaField]) === key;
+
+  // fallback su una lista ampia di possibili chiavi
+  const vals = [
+    r.area_id,
+    r.AreaID,
+    r.areaId,
+    r.area_slug,
+    r.AreaSlug,
+    r.areaSlug,
+    r.area,
+    r.area_name,
+    r.AreaName,
+    r.Room,
+    r.room,
+    r.Zona,
+    r.zona,
+    r.Postazione,
+    r.postazione,
+  ].map(norm);
+  return vals.includes(key);
+}
+
+// ——— API per aggiornare SOLO la colonna destra ———
+let __RIGHT_BASE_DAY1 = [];
+let __RIGHT_BASE_DAY2 = [];
+
+// (ri)applica dati ai due grafici e aggiorna il box sotto
+function setRightColumnData(day1Rows, day2Rows) {
+  if (chartDay1 && chartDay1.clear) chartDay1.clear();
+  if (chartDay2 && chartDay2.clear) chartDay2.clear();
+  if (chartDay1) chartDay1.setData(day1Rows || []);
+  if (chartDay2) chartDay2.setData(day2Rows || []);
+
+  // ----- Totale combinato -----
+  const totalAll = (day1Rows?.length || 0) + (day2Rows?.length || 0);
+  const elTotalAll = document.getElementById("total-reactions-all");
+  if (elTotalAll) elTotalAll.textContent = totalAll.toLocaleString("it-IT");
+
+  // ----- Emozione più comune sui due insiemi -----
+  const allRows = [...(day1Rows || []), ...(day2Rows || [])];
+  const counts = d3.rollup(
+    allRows,
+    (v) => v.length,
+    (r) => (r.emotion || r.Emozione || r.emozione || "").toString().trim()
+  );
+  let topEmotion = null,
+    maxCount = -1;
+  for (const [emo, n] of counts.entries()) {
+    if (!emo) continue;
+    if (n > maxCount) {
+      maxCount = n;
+      topEmotion = emo;
+    }
+  }
+  const tag = document.getElementById("common-emotion-tag");
+  if (tag) {
+    const dot = tag.querySelector(".dot");
+    const name = tag.querySelector(".name");
+    if (dot) {
+      const col =
+        typeof resolveEmotionColor === "function"
+          ? resolveEmotionColor(topEmotion)
+          : typeof getEmotionColor === "function"
+          ? getEmotionColor(topEmotion)
+          : null;
+      dot.style.background = col || "var(--text)";
+    }
+    if (name) name.textContent = topEmotion || "—";
+  }
+}
+
+// filtra i dati della colonna destra per area corrente
+function updateRightColumnForArea(areaKey) {
+  if (!areaKey) return;
+  const areaField =
+    window.ZING?.areaField ||
+    detectAreaField(__RIGHT_BASE_DAY1.concat(__RIGHT_BASE_DAY2));
+  const f1 = (__RIGHT_BASE_DAY1 || []).filter((r) =>
+    rowMatchesArea(r, areaKey, areaField)
+  );
+  const f2 = (__RIGHT_BASE_DAY2 || []).filter((r) =>
+    rowMatchesArea(r, areaKey, areaField)
+  );
+  setRightColumnData(f1, f2);
+}
+
+// rimuove il filtro (torna alla vista aggregata)
+function clearRightColumnFilter() {
+  setRightColumnData(__RIGHT_BASE_DAY1, __RIGHT_BASE_DAY2);
+}
 
 /* ---------- Charts ---------- */
 const chartDay1 = createChart({
@@ -702,9 +825,12 @@ async function loadAndRenderBoth() {
     // (opzionale) svuota prima, se i componenti non rimuovono da soli
     if (chartDay1.clear) chartDay1.clear();
     if (chartDay2.clear) chartDay2.clear();
+    // salva le basi (non filtrate) per poter ripristinare
+    __RIGHT_BASE_DAY1 = rowsDay1;
+    __RIGHT_BASE_DAY2 = rowsDay2;
 
-    chartDay1.setData(rowsDay1);
-    chartDay2.setData(rowsDay2);
+    // primo render della colonna destra (non filtrata)
+    setRightColumnData(__RIGHT_BASE_DAY1, __RIGHT_BASE_DAY2);
     // ----- Totale combinato (somma reazioni giorno1 + giorno2) -----
     const totalAll = rowsDay1.length + rowsDay2.length;
     const elTotalAll = document.getElementById("total-reactions-all");
@@ -1105,6 +1231,7 @@ d3.selectAll(".emotions li").on("click", function () {
               var __blk = document.querySelector(".room-metrics-emotion");
               if (__blk) __blk.style.display = "none";
               window.ZING.currentArea = areaName;
+              updateRightColumnForArea(window.ZING.currentArea);
             } catch (e) {}
           }
         },
@@ -1435,6 +1562,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (overlay) overlay.classList.remove("active");
       const cm = document.querySelector(".center-map");
       if (cm) cm.style.display = "flex";
+      clearRightColumnFilter();
     });
   }
 });
@@ -1937,6 +2065,3 @@ function renderHourlyChart(area) {
     attributeFilter: ["hidden", "class"],
   });
 })();
-
-// Selezione emozione o cambio tema non influiscono sui conteggi orari;
-// ma se per te cambiano il dataset filtrato, richiama renderHourlyChart(area) anche lì.
