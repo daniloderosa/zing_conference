@@ -319,6 +319,19 @@ OBIETTIVO
               stroke-linecap="round"
             />
           </svg>
+          <!-- PNG sopra allo SVG, click-through -->
+          <img
+            src="./assets/Illustrazioni Light.png"
+            alt=""
+            class="rooms-illustration illus-light"
+            aria-hidden="true"
+          />
+          <img
+            src="./assets/Illustrazioni Dark.png"
+            alt=""
+            class="rooms-illustration illus-dark"
+            aria-hidden="true"
+          />
         </div>
 
         <!-- Overlay stanza (centrale) -->
@@ -506,30 +519,38 @@ OBIETTIVO
       <!-- Colonna 3 -->
       <!-- Colonna DESTRA: due bar chart Giorno 1 / Giorno 2 -->
       <aside class="col col-right">
+        <div class="rightcol-title">Emozioni in stanza, durante il giorno</div>
         <div class="chart-grid">
           <div class="chart-block">
             <header class="chart-header">
-              <span class="muted">Le emozioni da voi, durante il giorno</span>
-              <strong>Giovedì (Giorno 1)</strong>
+              <strong id="day1-subtitle" class="subhead">—</strong>
             </header>
+
             <div class="chart-wrapper">
               <svg id="chart-day1"></svg>
             </div>
-            <footer class="chart-footer">
-              <span id="total-reactions-day1">0</span> Reazioni totali
-            </footer>
           </div>
           <div class="chart-block">
             <header class="chart-header">
-              <span class="muted">Le emozioni da voi, durante il giorno</span>
-              <strong>Venerdì (Giorno 2)</strong>
+              <strong id="day2-subtitle" class="subhead">—</strong>
             </header>
+
             <div class="chart-wrapper">
               <svg id="chart-day2"></svg>
             </div>
-            <footer class="chart-footer">
-              <span id="total-reactions-day2">0</span> Reazioni totali
-            </footer>
+          </div>
+        </div>
+        <!-- Footer aggregato per la colonna destra -->
+        <div class="rightcol-summary">
+          <div class="total-reactions">
+            <span id="total-reactions-all">0</span> Reazioni totali
+          </div>
+          <div class="common-emotion">
+            <span class="label">Emozione più comune</span>
+            <div class="emo-tag" id="common-emotion-tag">
+              <span class="dot"></span>
+              <span class="name">—</span>
+            </div>
           </div>
         </div>
       </aside>

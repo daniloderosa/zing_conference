@@ -228,6 +228,50 @@ body {
   font-weight: 800;
   margin-right: 4px;
 }
+/* Footer aggregato colonna destra */
+.col-right .rightcol-summary {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-weight: 600;
+  text-align: right; /* <— allinea a destra tutto il blocco */
+  font-size: 16px; /* <— aumenta dimensione globale */
+}
+
+/* Riga "x Reazioni totali" */
+.col-right .total-reactions {
+  font-size: 18px; /* leggermente più grande per il numero */
+  font-weight: 700;
+}
+
+/* Riga "Emozione più comune" */
+.col-right .common-emotion {
+  display: flex;
+  justify-content: flex-end; /* allinea contenuto a destra */
+  align-items: center;
+  gap: 10px;
+}
+
+/* Etichetta a sinistra della riga (ora sarà a destra del blocco, ma va bene) */
+.col-right .common-emotion .label {
+  order: -1; /* opzionale: la fa apparire prima del cerchio */
+}
+
+/* Cerchio e nome emozione */
+.col-right .emo-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px; /* leggermente più grande */
+}
+
+.col-right .emo-tag .dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text);
+}
 
 /* axes & bars */
 .axis {
@@ -846,4 +890,71 @@ body[data-theme="dark"] {
 
 #room-overlay #hourly-chart .axis .domain {
   display: none;
-} /* difesa in profondità */
+}
+#room-overlay #hourly-chart rect.bar-fill {
+  transition: width 0.4s ease, fill 0.4s ease;
+}
+/* Titolo unico sopra i due grafici della colonna destra */
+.col-right .rightcol-title {
+  margin: 0 0 6px 0; /* un filo meno spazio per restare compatti */
+  font-weight: 800;
+  font-size: 18px; /* allinealo ai tuoi titoli piccoli */
+  line-height: 1.2;
+}
+
+/* Sottotitoli sopra i grafici a destra */
+.col-right .chart-header .subhead {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1.2;
+  text-align: right; /* <— questa è la riga che allinea a destra */
+  display: block; /* garantisce che text-align funzioni anche se è un <strong> inline */
+}
+/* Contenitore del canvas centrale: dimensione fissa in proporzione al viewBox */
+.col-center .center-map {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1002 / 958; /* === viewBox dello SVG === */
+}
+
+/* Lo SVG riempie interamente il box (niente margini di layout) */
+.col-center .center-map > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* I PNG stanno esattamente sopra allo SVG (click-through) */
+.col-center .center-map > .rooms-illustration {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill; /* stesso box dello SVG */
+  pointer-events: none; /* i click passano allo SVG */
+  z-index: 1;
+}
+
+/* mostra la versione corretta in base al tema */
+.illus-dark {
+  display: none;
+}
+.illus-light {
+  display: block;
+}
+
+/* Se usi body[data-theme="dark"] nel progetto (già presente) */
+body[data-theme="dark"] .illus-dark {
+  display: block;
+}
+body[data-theme="dark"] .illus-light {
+  display: none;
+}
+
+/* Optional: se hai un overlay stanza, nascondi le illustrazioni quando è aperto */
+#room-overlay.active ~ main .center-map .rooms-illustration,
+body.overlay-open .center-map .rooms-illustration {
+  display: none;
+}

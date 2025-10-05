@@ -262,6 +262,49 @@ function computeSlotDominants(rows) {
   return result;
 }
 
+/* Conta per slot (10') quante reazioni per emozione, per calcolare lo "stacked" */
+/* Conta per ORA (60') quante reazioni per emozione: serve allo "stacked" orario */
+function computeHourCounts(rows) {
+  // Map( Number(+hourStartDate) -> Map(emozione -> count) )
+  const byHour = new Map();
+
+  for (const r of rows) {
+    // ricava ora e data
+    const dateStr =
+      r.date ||
+      r.Date ||
+      r.data ||
+      r.Data ||
+      r.timestamp_iso_local?.slice(0, 10) ||
+      "";
+    const t = parseTimeHHMM(r.time_local ?? r.time ?? r.Time ?? "");
+    if (!dateStr || !t) continue;
+
+    const h = t.hour; // 0..23
+    if (h < 9 || h >= 18) continue; // fuori dal range visuale
+
+    // "snap" all'inizio ora
+    const hourStart = new Date(
+      `${dateStr}T${String(h).padStart(2, "0")}:00:00`
+    );
+    const keyNum = +hourStart;
+
+    const emo = (r.emotion ?? r.Emotion ?? r.emozione ?? r.Emozione ?? "")
+      .toString()
+      .trim();
+    if (!emo) continue;
+
+    let map = byHour.get(keyNum);
+    if (!map) {
+      map = new Map();
+      byHour.set(keyNum, map);
+    }
+    map.set(emo, (map.get(emo) || 0) + 1);
+  }
+
+  return byHour;
+}
+
 /* ---------- Chart factory ---------- */
 function createChart({ svgId, totalId, dayKey, drawBarsWhenNoData = false }) {
   const svg = d3.select(`#${svgId}`);
@@ -338,34 +381,116 @@ function createChart({ svgId, totalId, dayKey, drawBarsWhenNoData = false }) {
       };
     });
 
+    // --- RIMPIAZZA DA QUI ---
     const gBars = g.append("g").attr("class", "slot-bars");
-    const sel = gBars
-      .selectAll("rect.bar")
-      .data(barsData, (d) => d.key)
-      .join("rect")
-      .attr(
-        "class",
-        (d) =>
-          `bar ${d.empty ? "empty" : ""} emo-${String(d.emo || "").replace(
-            /\s+/g,
-            "_"
-          )}`
-      )
-      .attr("x", leftPad)
-      .attr("y", (d) => y(d.s) + gap / 2)
-      .attr("width", barW)
-      .attr("height", (d) => Math.max(1, y(d.next) - y(d.s) - gap))
-      .attr("fill", (d) => (d.empty ? null : d.color))
-      .style("fill", (d) => (d.empty ? "var(--bg)" : null));
 
-    sel
-      .append("title")
-      .text(
-        (d) =>
-          `${d.key} → ${String(d.next.getHours()).padStart(2, "0")}:${String(
-            d.next.getMinutes()
-          ).padStart(2, "0")} • ${d.emo}`
+    // selezione attuale dalla legenda (se presente, attivo "stacked")
+    const SELECTED_LABEL = window.__SELECTED_EMOTION_LABEL || null;
+    const SELECTED_COLOR =
+      window.__SELECTED_EMOTION_COLOR ||
+      (SELECTED_LABEL ? getEmotionColor(SELECTED_LABEL) : null);
+
+    if (SELECTED_LABEL && state.hourCounts) {
+      // ============ MODALITÀ STACKED (affluenza ORARIA) ============
+      const groups = gBars
+        .selectAll("g.bar")
+        .data(barsData, (d) => d.key)
+        .join((enter) => {
+          const gEnter = enter
+            .append("g")
+            .attr(
+              "class",
+              (d) =>
+                `bar ${d.empty ? "empty" : ""} emo-${String(
+                  d.emo || ""
+                ).replace(/\s+/g, "_")}`
+            );
+          gEnter.append("rect").attr("class", "bar-bg");
+          gEnter.append("rect").attr("class", "bar-fill");
+          gEnter.append("title");
+          return gEnter;
+        });
+
+      groups.attr(
+        "transform",
+        (d) => `translate(${leftPad}, ${y(d.s) + gap / 2})`
       );
+
+      const barH = (d) => Math.max(1, y(d.next) - y(d.s) - gap);
+
+      // Fondo bianco: tutta l'ora
+      groups
+        .select("rect.bar-bg")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", barW)
+        .attr("height", barH)
+        .attr("fill", "#FFFFFF");
+
+      // Porzione colorata = quota dell'emozione selezionata nell'ora
+      groups
+        .select("rect.bar-fill")
+        .each(function (d) {
+          const keyNum = +d.s; // inizio ora come number
+          const counts =
+            (state.hourCounts && state.hourCounts.get(keyNum)) || new Map();
+          const totalN = Array.from(counts.values()).reduce((a, b) => a + b, 0);
+          const emoN = counts.get(SELECTED_LABEL) || 0;
+          const p = totalN > 0 ? emoN / totalN : 0;
+
+          d.__stack_totalN = totalN;
+          d.__stack_emoN = emoN;
+          d.__stack_p = p;
+        })
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", (d) => Math.round(barW * (d.__stack_p || 0)))
+        .attr("height", barH)
+        .attr("fill", SELECTED_COLOR || "#000000");
+
+      // Tooltip: breakdown per ora
+      groups.select("title").text((d) => {
+        const keyNum = +d.s;
+        const counts =
+          (state.hourCounts && state.hourCounts.get(keyNum)) || new Map();
+        const bits = EMO_ORDER.map((emo) => `${emo}: ${counts.get(emo) || 0}`);
+        const h0 = String(d.s.getHours()).padStart(2, "0");
+        const h1 = String(d.next.getHours()).padStart(2, "0");
+        return `${h0}:00–${h1}:00
+${bits.join(" · ")}
+${SELECTED_LABEL}: ${d.__stack_emoN || 0} / ${d.__stack_totalN || 0}`;
+      });
+    } else {
+      // ============ MODALITÀ STANDARD (dominante piena) ============
+      const sel = gBars
+        .selectAll("rect.bar")
+        .data(barsData, (d) => d.key)
+        .join("rect")
+        .attr(
+          "class",
+          (d) =>
+            `bar ${d.empty ? "empty" : ""} emo-${String(d.emo || "").replace(
+              /\s+/g,
+              "_"
+            )}`
+        )
+        .attr("x", leftPad)
+        .attr("y", (d) => y(d.s) + gap / 2)
+        .attr("width", barW)
+        .attr("height", (d) => Math.max(1, y(d.next) - y(d.s) - gap))
+        .attr("fill", (d) => (d.empty ? null : d.color))
+        .style("fill", (d) => (d.empty ? "var(--bg)" : null));
+
+      sel
+        .append("title")
+        .text(
+          (d) =>
+            `${String(d.s.getHours()).padStart(2, "0")}:00–${String(
+              d.next.getHours()
+            ).padStart(2, "0")}:00\nEmozione dominante: ${d.emo || "—"}`
+        );
+    }
+    // --- FINO A QUI ---
   }
 
   function measureAndDraw() {
@@ -395,10 +520,23 @@ function createChart({ svgId, totalId, dayKey, drawBarsWhenNoData = false }) {
       }
 
       state.slotDominants = computeSlotDominants(rowsForDay);
+      state.hourCounts = computeHourCounts(rowsForDay);
       measureAndDraw();
     },
     redraw: measureAndDraw,
   };
+}
+// "2025-10-01" -> "mercoledì 01"
+function formatDaySubhead(dateStr) {
+  try {
+    const d = new Date(`${dateStr}T00:00:00`);
+    return new Intl.DateTimeFormat("it-IT", {
+      weekday: "long",
+      day: "2-digit",
+    }).format(d);
+  } catch {
+    return "—";
+  }
 }
 
 /* ---------- Charts ---------- */
@@ -421,6 +559,58 @@ const chartDay2 = createChart({
 
 // For first bar: in dark -> fill white, background = var(--bg). In light -> fill var(--text), background white.
 // For second bar when emotion selected: in dark -> background = var(--bg), fill = emotion color. In light -> default styles.
+// --- Risoluzione colore emozione coerente con la legenda ---
+function resolveEmotionColor(label) {
+  if (!label) return null;
+  const key = String(label).trim();
+
+  // (a) prova a leggere dalla legenda (var(--c) del "dot")
+  //    - match by data-emotion o testo normalizzato
+  const allLis = document.querySelectorAll(".emotions li");
+  const norm = (s) =>
+    String(s || "")
+      .trim()
+      .toLowerCase();
+  let dotEl = null;
+
+  for (const li of allLis) {
+    const liLabel = li.dataset?.emotion || li.textContent;
+    if (norm(liLabel) === norm(key)) {
+      dotEl = li.querySelector(".dot,[style*='--c']") || li;
+      break;
+    }
+  }
+  if (dotEl) {
+    const cssColor = getComputedStyle(dotEl).getPropertyValue("--c").trim();
+    if (cssColor) return cssColor;
+  }
+
+  // (b) fallback a EMO_COLORS (Map o Object) se esiste
+  if (window.EMO_COLORS) {
+    // Map
+    if (typeof window.EMO_COLORS.get === "function") {
+      for (const [emo, col] of window.EMO_COLORS.entries()) {
+        if (norm(emo) === norm(key)) return col;
+      }
+    } else {
+      // plain object
+      for (const emo in window.EMO_COLORS) {
+        if (norm(emo) === norm(key)) return window.EMO_COLORS[emo];
+      }
+    }
+  }
+
+  // (c) palette di riserva (se proprio serve)
+  const FALLBACK = {
+    curiosità: "#2ECC71",
+    entusiasmo: "#F1C40F",
+    fiducia: "#3498DB",
+    indifferenza: "#95A5A6",
+    confusione: "#9B59B6",
+    timore: "#E74C3C",
+  };
+  return FALLBACK[norm(key)] || "var(--text)";
+}
 
 async function loadAndRenderBoth() {
   try {
@@ -451,7 +641,7 @@ async function loadAndRenderBoth() {
         time_local: t, // usato da computeSlotDominants()
       };
     });
-
+    rows = rows.filter(__isRealFeedRow);
     // 3) aggiungi _computedDay se serve (usa 'date' appena calcolata)
     rows = assignDaysByDate(rows);
 
@@ -477,6 +667,17 @@ async function loadAndRenderBoth() {
     ).sort();
     const day1Date = dates[0] || null;
     const day2Date = dates[1] || null;
+    // ----- aggiorna i sottotitoli sopra i due grafici (se presenti in HTML) -----
+    const el1 = document.getElementById("day1-subtitle");
+    if (el1) el1.textContent = day1Date ? formatDaySubhead(day1Date) : "—";
+
+    const el2 = document.getElementById("day2-subtitle");
+    if (el2) el2.textContent = day2Date ? formatDaySubhead(day2Date) : "—";
+
+    // opzionale: se vuoi anche impostare/garantire il titolo unico a destra
+    const rightTitle = document.querySelector(".col-right .rightcol-title");
+    if (rightTitle)
+      rightTitle.textContent = "Emozioni in stanza, durante il giorno";
 
     const rowsDay1 = rows.filter(
       (r) => String(r.giorno) === "1" || (day1Date && r.date === day1Date)
@@ -504,6 +705,43 @@ async function loadAndRenderBoth() {
 
     chartDay1.setData(rowsDay1);
     chartDay2.setData(rowsDay2);
+    // ----- Totale combinato (somma reazioni giorno1 + giorno2) -----
+    const totalAll = rowsDay1.length + rowsDay2.length;
+    const elTotalAll = document.getElementById("total-reactions-all");
+    if (elTotalAll) elTotalAll.textContent = totalAll.toLocaleString("it-IT");
+
+    // ----- Emozione più comune sui due giorni -----
+    const allRows = [...rowsDay1, ...rowsDay2];
+    const counts = d3.rollup(
+      allRows,
+      (v) => v.length,
+      (r) => (r.emotion || r.Emozione || r.emozione || "").trim()
+    );
+
+    // trova quella con massimo valore
+    let topEmotion = null;
+    let maxCount = -1;
+    for (const [emo, count] of counts.entries()) {
+      if (!emo) continue;
+      if (count > maxCount) {
+        maxCount = count;
+        topEmotion = emo;
+      }
+    }
+
+    // aggiorna UI del box "Emozione più comune"
+    const tag = document.getElementById("common-emotion-tag");
+    if (tag) {
+      const dot = tag.querySelector(".dot");
+      const name = tag.querySelector(".name");
+      if (dot) {
+        const col = resolveEmotionColor(topEmotion);
+        dot.style.background = col || "var(--text)";
+      }
+
+      if (name) name.textContent = topEmotion || "—";
+    }
+
     // (eventuale) colorazione riquadri interni
     colorRoomBordersByTopEmotion(rows);
   } catch (e) {
@@ -726,6 +964,14 @@ d3.selectAll(".emotions li").on("click", function () {
     updateEmotionMetrics(window.ZING.currentArea, emotion);
     updateStackedBarColors(window.__SELECTED_EMOTION_COLOR);
     // optional layout function
+    if (
+      document.getElementById("hourly-block") &&
+      window.ZING &&
+      window.ZING.currentArea
+    ) {
+      requestAnimationFrame(() => renderHourlyChart(window.ZING.currentArea));
+    }
+
     function positionRoomMetrics() {}
     requestAnimationFrame(() => positionRoomMetrics());
   }
@@ -1475,6 +1721,7 @@ function renderHourlyChart(area) {
     document.body.getAttribute("data-theme") === "dark" ? "dark" : "light";
 
   // emozione attiva + colore (dal li .active con --c)
+  // emozione attiva + colore (dal li .active con --c)
   let selectedEmotionLabel = null;
   let selectedEmotionColor = null;
   const activeLi = document.querySelector(".emotions li.active");
@@ -1484,21 +1731,29 @@ function renderHourlyChart(area) {
       activeLi.textContent ||
       ""
     ).trim();
-    // prova da CSS var --c sul <li> o sull'icona interna
+
+    // 1) prova CSS var --c sul li
     selectedEmotionColor = getComputedStyle(activeLi)
       .getPropertyValue("--c")
       .trim();
+
+    // 2) prova su icona/pallino interno
     if (!selectedEmotionColor) {
       const dot = activeLi.querySelector('i,[style*="--c"]');
-      if (dot)
+      if (dot) {
         selectedEmotionColor = getComputedStyle(dot)
           .getPropertyValue("--c")
           .trim();
+      }
+    }
+
+    // 3) fallback mappa colori (se hai EMO_COLORS/getEmotionColor)
+    if (!selectedEmotionColor && typeof getEmotionColor === "function") {
+      selectedEmotionColor = getEmotionColor(selectedEmotionLabel);
     }
   }
 
-  const hasSplitBars =
-    theme === "dark" && !!selectedEmotionLabel && !!selectedEmotionColor;
+  const hasSplitBars = !!selectedEmotionLabel && !!selectedEmotionColor;
 
   // ========== DATI ==========
   // Totale per ora (stanza+data correnti)
@@ -1626,7 +1881,7 @@ function renderHourlyChart(area) {
           .attr("y", yPos)
           .attr("width", x(emo))
           .attr("height", barH)
-          .attr("fill", selectedEmotionColor);
+          .style("fill", selectedEmotionColor);
       }
     } else {
       // barra unica (totale) → neutra (usa var(--text) via CSS di default)
