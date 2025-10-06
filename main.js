@@ -306,7 +306,13 @@ function computeHourCounts(rows) {
 }
 
 /* ---------- Chart factory ---------- */
-function createChart({ svgId, totalId, dayKey, drawBarsWhenNoData = false }) {
+function createChart({
+  svgId,
+  totalId,
+  dayKey,
+  drawBarsWhenNoData = false,
+  allowStacked = true,
+}) {
   const svg = d3.select(`#${svgId}`);
   const svgNode = svg.node();
   if (!svgNode) {
@@ -316,6 +322,8 @@ function createChart({ svgId, totalId, dayKey, drawBarsWhenNoData = false }) {
   if (!wrapperEl) {
   } else {
   }
+
+  const cfg = { svgId, allowStacked };
 
   const state = {
     svg,
@@ -390,7 +398,7 @@ function createChart({ svgId, totalId, dayKey, drawBarsWhenNoData = false }) {
       window.__SELECTED_EMOTION_COLOR ||
       (SELECTED_LABEL ? getEmotionColor(SELECTED_LABEL) : null);
 
-    if (SELECTED_LABEL && state.hourCounts) {
+    if (cfg.allowStacked && SELECTED_LABEL && state.hourCounts) {
       // ============ MODALITÀ STACKED (affluenza ORARIA) ============
       const groups = gBars
         .selectAll("g.bar")
@@ -668,6 +676,7 @@ const chartDay1 = createChart({
   totalId: "total-reactions-day1",
   dayKey: "giorno 1",
   drawBarsWhenNoData: true,
+  allowStacked: false,
 });
 
 const chartDay2 = createChart({
@@ -675,6 +684,7 @@ const chartDay2 = createChart({
   totalId: "total-reactions-day2",
   dayKey: "giorno 2",
   drawBarsWhenNoData: false,
+  allowStacked: false,
 });
 
 /* ---------- Fetch & render ---------- */
@@ -870,6 +880,10 @@ async function loadAndRenderBoth() {
 
     // (eventuale) colorazione riquadri interni
     colorRoomBordersByTopEmotion(rows);
+
+    // Recolor + filter timelines after fresh render
+    if (typeof ensureTimelineColorsAndFilter === "function")
+      ensureTimelineColorsAndFilter();
   } catch (e) {
     console.error("loadAndRenderBoth failed:", e);
     chartDay1.setData([]);
@@ -1085,6 +1099,9 @@ d3.selectAll(".emotions li").on("click", function () {
   // Save selection color globally for theme changes
   window.__SELECTED_EMOTION_COLOR = emoColor || null;
 
+  // >>> [P3] salva anche la LABEL in globale (serve ai grafici Giorno1/2)
+  window.__SELECTED_EMOTION_LABEL = emotion; // <-- AGGIUNGI QUESTA
+
   // Update overlay metrics if inside a room
   if (window.ZING && window.ZING.currentArea) {
     updateEmotionMetrics(window.ZING.currentArea, emotion);
@@ -1109,9 +1126,16 @@ d3.selectAll(".emotions li").on("click", function () {
     li.classed("active", true);
     d3.selectAll(".bar").classed("dimmed", (d) => (d.emo || "—") !== emotion);
   } else {
+    // se stai deselezionando, azzera anche la label globale
+    window.__SELECTED_EMOTION_LABEL = null; // <-- [P3] opzionale ma consigliato
     const blk = document.querySelector(".room-metrics-emotion");
     if (blk) blk.style.display = "none";
   }
+
+  // >>> [P3] riapplica l’highlight alle timeline Giorno1/Giorno2
+  if (typeof ensureTimelineColorsAndFilter === "function")
+    ensureTimelineColorsAndFilter();
+  applyLegendHighlightToTimelineCharts();
 });
 
 // === [SVG inner rooms: init + legend sync] ===================================
@@ -1563,6 +1587,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const cm = document.querySelector(".center-map");
       if (cm) cm.style.display = "flex";
       clearRightColumnFilter();
+      if (typeof ensureTimelineColorsAndFilter === "function")
+        ensureTimelineColorsAndFilter();
     });
   }
 });
@@ -2072,26 +2098,15 @@ function __getCenterSvg() {
   return document.querySelector(".col-center .center-map svg");
 }
 
-/** Trova il rect-ancora: prima #illus-anchor, altrimenti il <rect> con area maggiore */
 function __findAnchorRect(svg) {
   if (!svg) return null;
-  const byId = svg.querySelector("#illus-anchor");
-  if (byId) return byId;
-
-  const rects = Array.from(svg.querySelectorAll("rect"));
-  if (!rects.length) return null;
-  let best = null,
-    bestA = -1;
-  for (const r of rects) {
-    const w = parseFloat(r.getAttribute("width") || "0");
-    const h = parseFloat(r.getAttribute("height") || "0");
-    const a = w * h;
-    if (a > bestA) {
-      bestA = a;
-      best = r;
-    }
+  const r = svg.querySelector("#illus-anchor");
+  if (!r) {
+    console.warn(
+      'Rect ancora mancante: aggiungi id="illus-anchor" allo <rect> di riferimento.'
+    );
   }
-  return best;
+  return r || null;
 }
 
 /** Posiziona i PNG (.rooms-illustration) esattamente sopra il rect-ancora */
@@ -2142,5 +2157,186 @@ function __positionIllustrations() {
   if (wrap) {
     const mo = new MutationObserver(() => __positionIllustrations());
     mo.observe(wrap, { childList: true, subtree: true });
+  }
+})();
+
+/* === Recolor timeline bars from legend + ensure filter (never white after redraw) === */
+function __getLegendColorBySuffix(suffix) {
+  const lis = document.querySelectorAll(".emotions li");
+  for (const li of lis) {
+    const label = (li.getAttribute("data-emotion") || li.textContent || "")
+      .trim()
+      .replace(/\s+/g, "_");
+    if (label === suffix) {
+      const c =
+        getComputedStyle(li).getPropertyValue("--c").trim() ||
+        (li.querySelector('[style*="--c"]')
+          ? getComputedStyle(li.querySelector('[style*="--c"]'))
+              .getPropertyValue("--c")
+              .trim()
+          : "");
+      return c || null;
+    }
+  }
+  return null;
+}
+function recolorTimelinesFromLegend() {
+  const sel =
+    "#chart-day1 .slot-bars rect.bar:not(.empty), #chart-day2 .slot-bars rect.bar:not(.empty)";
+  document.querySelectorAll(sel).forEach((b) => {
+    const cls = b.getAttribute("class") || "";
+    const m = cls.match(/emo-([A-Za-z0-9_]+)/);
+    if (!m) return;
+    const suffix = m[1];
+    const col = __getLegendColorBySuffix(suffix);
+    if (col) {
+      b.style.removeProperty("fill");
+      b.setAttribute("fill", col);
+    }
+  });
+}
+function ensureTimelineColorsAndFilter() {
+  recolorTimelinesFromLegend();
+  if (typeof filterTimelinesToSelectedEmotion === "function") {
+    filterTimelinesToSelectedEmotion();
+  }
+}
+
+/* ===== Re-highlight delle timeline Giorno1/Giorno2 dopo overlay/refresh ===== */
+function applyLegendHighlightToTimelineCharts() {
+  const label = (window.__SELECTED_EMOTION_LABEL || "").trim();
+  const emoClass = label ? "emo-" + label.replace(/\s+/g, "_") : null;
+
+  // per entrambe le timeline
+  const containers = document.querySelectorAll(
+    "#chart-day1 .slot-bars, #chart-day2 .slot-bars"
+  );
+  containers.forEach((cont) => {
+    const hasStack = cont.querySelector(".bar-fill"); // se è stacked, niente dimming: l'highlight è la porzione colorata
+    const bars = cont.querySelectorAll("rect.bar");
+
+    if (!label || hasStack) {
+      // nessuna selezione o modalità stacked → rimuovi dim
+      cont
+        .querySelectorAll(".dimmed")
+        .forEach((n) => n.classList.remove("dimmed"));
+      return;
+    }
+
+    // modalità standard: dimmi i non corrispondenti (e non empty)
+    bars.forEach((b) => {
+      const cls = b.getAttribute("class") || "";
+      const isEmpty = cls.includes(" empty");
+      const isMatch = emoClass && cls.includes(emoClass);
+      b.classList.toggle("dimmed", !isEmpty && !isMatch);
+    });
+  });
+
+  // debug utile
+  // console.debug('[HL timeline] label:', label, 'containers:', containers.length);
+}
+// Riapplika highlight quando i nodi dei grafici cambiano (redraw, refresh, ecc.)
+(function observeTimelineContainers() {
+  const ids = ["#chart-day1", "#chart-day2"];
+  ids.forEach((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    const mo = new MutationObserver(() =>
+      applyLegendHighlightToTimelineCharts()
+    );
+    mo.observe(el, { childList: true, subtree: true });
+  });
+})();
+
+/* ==========================================================================
+   [ADD] Show-only-selected emotion on right-side Day1/Day2 timelines
+   - Hides all bars that don't match the emotion clicked in the left legend
+   - Works across redraw/refresh thanks to MutationObservers
+   - Non-invasive: no changes inside createChart(); additive only
+   ========================================================================== */
+
+/** Normalize label to CSS class suffix used on bars: 'emo-<slug>' */
+function __emotionSlug(label) {
+  return String(label || "")
+    .trim()
+    .replace(/\s+/g, "_");
+}
+
+/** Apply filter to both timelines (Day 1 & Day 2) */
+function filterTimelinesToSelectedEmotion() {
+  const label = (window.__SELECTED_EMOTION_LABEL || "").trim();
+  const slug = __emotionSlug(label);
+  const emoClass = slug ? "emo-" + slug : null;
+
+  const charts = ["#chart-day1", "#chart-day2"];
+  charts.forEach((sel) => {
+    const root = document.querySelector(sel);
+    if (!root) return;
+
+    // If stacked DOM is present for some reason, we fall back to showing everything
+    const hasStack = !!root.querySelector(".slot-bars .bar-fill");
+    const bars = root.querySelectorAll(".slot-bars rect.bar");
+
+    if (!emoClass || hasStack) {
+      // no selection or stacked mode: show everything
+      bars.forEach((b) => (b.style.display = ""));
+      return;
+    }
+
+    bars.forEach((b) => {
+      const cls = b.getAttribute("class") || "";
+      const isEmpty = cls.includes(" empty");
+      const isMatch = cls.includes(emoClass);
+      b.style.display = !isEmpty && isMatch ? "" : "none";
+    });
+  });
+}
+
+/** Re-apply after any redraw/refresh affecting the charts */
+(function __observeTimelineRedraws() {
+  ["#chart-day1", "#chart-day2"].forEach((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return;
+    const mo = new MutationObserver(() => {
+      setTimeout(() => {
+        ensureTimelineColorsAndFilter();
+      }, 0);
+    });
+    mo.observe(el, { childList: true, subtree: true });
+  });
+})();
+
+/** Wire legend clicks (capture) to always set globals + filter */
+(function __wireLegendFilterCapture() {
+  const legend = document.querySelector(".emotions");
+  if (!legend) return;
+  legend.addEventListener(
+    "click",
+    (ev) => {
+      const li = ev.target.closest("li");
+      if (!li || !legend.contains(li)) return;
+      const label = (li.getAttribute("data-emotion") || li.textContent || "")
+        .toString()
+        .trim();
+
+      // toggle selection like UI would do
+      const alreadyActive = li.classList.contains("active");
+      // set globals
+      window.__SELECTED_EMOTION_LABEL = alreadyActive ? null : label;
+
+      // apply immediately
+      filterTimelinesToSelectedEmotion();
+    },
+    true // capture to ensure we always run irrespective of other listeners
+  );
+})();
+
+/** First run on ready */
+(function __firstRunFilter() {
+  const run = () => filterTimelinesToSelectedEmotion();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run, { once: true });
+  } else {
+    run();
   }
 })();
