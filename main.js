@@ -2065,3 +2065,82 @@ function renderHourlyChart(area) {
     attributeFilter: ["hidden", "class"],
   });
 })();
+/* ========= PNG overlay aligned to central SVG <rect> anchor ========= */
+
+/** Torna lo <svg> centrale dentro .center-map */
+function __getCenterSvg() {
+  return document.querySelector(".col-center .center-map svg");
+}
+
+/** Trova il rect-ancora: prima #illus-anchor, altrimenti il <rect> con area maggiore */
+function __findAnchorRect(svg) {
+  if (!svg) return null;
+  const byId = svg.querySelector("#illus-anchor");
+  if (byId) return byId;
+
+  const rects = Array.from(svg.querySelectorAll("rect"));
+  if (!rects.length) return null;
+  let best = null,
+    bestA = -1;
+  for (const r of rects) {
+    const w = parseFloat(r.getAttribute("width") || "0");
+    const h = parseFloat(r.getAttribute("height") || "0");
+    const a = w * h;
+    if (a > bestA) {
+      bestA = a;
+      best = r;
+    }
+  }
+  return best;
+}
+
+/** Posiziona i PNG (.rooms-illustration) esattamente sopra il rect-ancora */
+function __positionIllustrations() {
+  const wrap = document.querySelector(".col-center .center-map");
+  const svg = __getCenterSvg();
+  const anchor = __findAnchorRect(svg);
+  const imgs = document.querySelectorAll(
+    ".col-center .center-map .rooms-illustration"
+  );
+  if (!wrap || !svg || !anchor || !imgs.length) return;
+
+  // bounding box reali a schermo (considerano viewBox, preserveAspectRatio e scaling)
+  const wrapBox = wrap.getBoundingClientRect();
+  const anchorBox = anchor.getBoundingClientRect();
+
+  const left = anchorBox.left - wrapBox.left;
+  const top = anchorBox.top - wrapBox.top;
+  const w = anchorBox.width;
+  const h = anchorBox.height;
+
+  imgs.forEach((img) => {
+    img.style.left = left + "px";
+    img.style.top = top + "px";
+    img.style.width = w + "px";
+    img.style.height = h + "px";
+  });
+}
+
+/** Init + listeners (al load, su resize, e quando cambia lo <svg>) */
+(function __initIllustrationAnchor() {
+  const onReady = () => __positionIllustrations();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", onReady, { once: true });
+  } else {
+    onReady();
+  }
+
+  // Recompute on resize (debounced)
+  let t;
+  window.addEventListener("resize", () => {
+    clearTimeout(t);
+    t = setTimeout(__positionIllustrations, 60);
+  });
+
+  // Se il nodo SVG viene rimpiazzato/ricaricato, ricalcola
+  const wrap = document.querySelector(".col-center .center-map");
+  if (wrap) {
+    const mo = new MutationObserver(() => __positionIllustrations());
+    mo.observe(wrap, { childList: true, subtree: true });
+  }
+})();

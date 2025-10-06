@@ -929,12 +929,16 @@ body[data-theme="dark"] {
 /* I PNG stanno esattamente sopra allo SVG (click-through) */
 .col-center .center-map > .rooms-illustration {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: fill; /* stesso box dello SVG */
+  /* il posizionamento e le dimensioni saranno dati via JS in base al rect-ancora */
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
   pointer-events: none; /* i click passano allo SVG */
+  object-fit: contain; /* conserva proporzioni del PNG */
+  object-position: left top;
   z-index: 1;
+  will-change: left, top, width, height;
 }
 
 /* mostra la versione corretta in base al tema */
