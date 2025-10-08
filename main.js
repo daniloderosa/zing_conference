@@ -778,12 +778,6 @@ async function loadAndRenderBoth() {
     // 3) aggiungi _computedDay se serve (usa 'date' appena calcolata)
     rows = assignDaysByDate(rows);
 
-    console.log(
-      "[DBG] fetched rows:",
-      rows.length,
-      rows[0] ? Object.keys(rows[0]) : []
-    );
-
     // timestamp bottombar
     const ts = new Date().toLocaleTimeString("it-IT", {
       hour: "2-digit",
@@ -853,6 +847,8 @@ async function loadAndRenderBoth() {
       (v) => v.length,
       (r) => (r.emotion || r.Emozione || r.emozione || "").trim()
     );
+    // -- keep a global reference for per-room opacity logic
+    window.__ALL_ROWS = rows;
 
     // trova quella con massimo valore
     let topEmotion = null;
@@ -891,6 +887,8 @@ async function loadAndRenderBoth() {
     const tsEl = document.getElementById("last-update");
     if (tsEl) tsEl.textContent = "—";
   }
+
+  applyPerRoomEmotionOpacity(window.__SELECTED_EMOTION_LABEL || null);
 }
 
 // ---- Color #260F30 inner rectangles by top emotion per area ----
@@ -975,17 +973,11 @@ function logEmotionsForArea(areaName) {
 
     const obj = {};
     emoCounts.forEach((v, k) => (obj[k] = v));
-    console.group(`[ROOM] ${areaName}`);
-    console.log("Reazioni stanza:", totalArea, "/ Totale:", totalAll);
-    console.table(obj);
     // Percentuali sulla stanza
     const pct = {};
     Object.keys(obj).forEach((k) => {
       pct[k] = totalArea ? ((obj[k] / totalArea) * 100).toFixed(1) + "%" : "0%";
     });
-    console.log("Percentuali sulla stanza:");
-    console.table(pct);
-    console.groupEnd();
   } catch (e) {
     console.warn("logEmotionsForArea failed:", e);
   }
@@ -1093,14 +1085,19 @@ d3.selectAll(".emotions li").on("click", function () {
     emoColor = EMO_COLORS.get(canon) || null;
   }
 
-  // Minimal debug for this test
-  console.log("[Legend click]", { emotion, emoColor });
-
   // Save selection color globally for theme changes
   window.__SELECTED_EMOTION_COLOR = emoColor || null;
 
   // >>> [P3] salva anche la LABEL in globale (serve ai grafici Giorno1/2)
   window.__SELECTED_EMOTION_LABEL = emotion; // <-- AGGIUNGI QUESTA
+  (function () {
+    window.__APPLY_OPACITY_TOKEN++;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        applyPerRoomEmotionOpacity(window.__SELECTED_EMOTION_LABEL);
+      })
+    );
+  })();
 
   // Update overlay metrics if inside a room
   if (window.ZING && window.ZING.currentArea) {
@@ -1127,10 +1124,26 @@ d3.selectAll(".emotions li").on("click", function () {
     d3.selectAll(".bar").classed("dimmed", (d) => (d.emo || "—") !== emotion);
   } else {
     // se stai deselezionando, azzera anche la label globale
-    window.__SELECTED_EMOTION_LABEL = null; // <-- [P3] opzionale ma consigliato
+    window.__SELECTED_EMOTION_LABEL = null;
+    (function () {
+      window.__APPLY_OPACITY_TOKEN++;
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          applyPerRoomEmotionOpacity(null);
+        })
+      );
+    })(); // <-- [P3] opzionale ma consigliato
     const blk = document.querySelector(".room-metrics-emotion");
     if (blk) blk.style.display = "none";
   }
+  (function () {
+    window.__APPLY_OPACITY_TOKEN++;
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        applyPerRoomEmotionOpacity(null);
+      })
+    );
+  })();
 
   // >>> [P3] riapplica l’highlight alle timeline Giorno1/Giorno2
   if (typeof ensureTimelineColorsAndFilter === "function")
@@ -1140,6 +1153,7 @@ d3.selectAll(".emotions li").on("click", function () {
 
 // === [SVG inner rooms: init + legend sync] ===================================
 (function () {
+  window.__APPLY_OPACITY_TOKEN = window.__APPLY_OPACITY_TOKEN || 0;
   // 1) Colleziona i "riquadri interni" dell'SVG e salva il fill originale
   //    - Robusto: cerca classi/attributi se presenti; altrimenti riconosce alcuni fill scuri noti
   function collectInnerRooms() {
@@ -1196,10 +1210,6 @@ d3.selectAll(".emotions li").on("click", function () {
     });
   }
 
-  function colorInnerRooms(color) {
-    INNER_NODES.forEach((n) => n.setAttribute("fill", color));
-  }
-
   // 2) Hook iniziale dopo che l’HTML è pronto
   function initInnerRoomsOnce() {
     if (INNER_NODES.length) return; // già fatto
@@ -1230,6 +1240,8 @@ d3.selectAll(".emotions li").on("click", function () {
             try {
               updateOverlayMetrics(areaName);
               (function () {
+                window.__APPLY_OPACITY_TOKEN =
+                  window.__APPLY_OPACITY_TOKEN || 0;
                 const active = document.querySelector(".emotions li.active");
                 let c = null;
                 if (active) {
@@ -1290,6 +1302,7 @@ d3.selectAll(".emotions li").on("click", function () {
           if (areaName) {
             updateOverlayMetrics(areaName);
             (function () {
+              window.__APPLY_OPACITY_TOKEN = window.__APPLY_OPACITY_TOKEN || 0;
               const active = document.querySelector(".emotions li.active");
               let c = null;
               if (active) {
@@ -1390,6 +1403,7 @@ d3.selectAll(".emotions li").on("click", function () {
 
   // === Global SVG recolor (center + overlay) ===
   (function () {
+    window.__APPLY_OPACITY_TOKEN = window.__APPLY_OPACITY_TOKEN || 0;
     // maps must be lower-case for lookups
     const DARK_MAP = {
       "#c7c7c7": "#21082b",
@@ -1405,11 +1419,27 @@ d3.selectAll(".emotions li").on("click", function () {
     }
 
     function recolorRootSvg(root, toDark) {
+      // Skip recoloring for inner room nodes (stanza content)
+      function isInner(el) {
+        try {
+          return !!(
+            el.closest &&
+            el.closest(
+              '[data-area],[data-room],[aria-label],.room-inner,[data-role="inner"]'
+            )
+          );
+        } catch (e) {
+          return false;
+        }
+      }
       if (!root) return;
       const map = toDark ? DARK_MAP : LIGHT_MAP;
 
       const nodes = root.querySelectorAll("[fill], [stroke], [style]");
       nodes.forEach((el) => {
+        if (isInner(el)) {
+          return;
+        }
         const f = el.getAttribute("fill");
         if (f) {
           const key = lower(f);
@@ -1455,6 +1485,20 @@ d3.selectAll(".emotions li").on("click", function () {
         "#281636": "#f3f3f3",
       };
       const map = toDark ? DARK_MAP : LIGHT_MAP;
+
+      // Skip inner room shapes so we don't overwrite per-room opacity
+      function isInner(el) {
+        try {
+          return !!(
+            el.closest &&
+            el.closest(
+              '[data-area],[data-room],[aria-label],.room-inner,[data-role="inner"]'
+            )
+          );
+        } catch (e) {
+          return false;
+        }
+      }
       const center = document.querySelector(".col-center");
       if (!center) return;
       const svg = center.querySelector("svg");
@@ -1462,6 +1506,9 @@ d3.selectAll(".emotions li").on("click", function () {
 
       const nodes = svg.querySelectorAll("[fill], [stroke], [style]");
       nodes.forEach((el) => {
+        if (isInner(el)) {
+          return;
+        }
         // direct fill
         const f = el.getAttribute("fill");
         if (f) {
@@ -1519,10 +1566,11 @@ d3.selectAll(".emotions li").on("click", function () {
         ) {
           selectedEmotionForRooms = null;
           resetInnerRooms();
+          applyPerRoomEmotionOpacity(null);
           applyThemeToggle(false);
         } else {
           selectedEmotionForRooms = emotionLabel;
-          colorInnerRooms(color);
+          /* colorInnerRooms disabled: per-room opacity handles fills */
           applyThemeToggle(true);
         }
         // NB: non tocchiamo qui la logica "dim" delle barre: resta il tuo handler d3 su .emotions li
@@ -1731,17 +1779,6 @@ function updateStackedBarColors(selectedEmotionColor = null) {
     const show = theme === "dark" && !!selectedEmotionColor;
     roomMetricsEmotion.style.display = show ? "" : "none";
   }
-
-  // Minimal debug for this test only
-  if (emoBar && emoFill) {
-    try {
-      console.log("[Stack2]", {
-        selectedEmotionColor,
-        domEmpty: getComputedStyle(emoBar).backgroundColor,
-        domFull: getComputedStyle(emoFill).backgroundColor,
-      });
-    } catch {}
-  }
 }
 
 /* -----------------------------
@@ -1947,6 +1984,7 @@ function renderHourlyChart(area) {
 
   // === MASSIMO GLOBALE (ASSE X FISSO per sempre: tutte stanze + tutte date) ===
   const globalMax = (function () {
+    window.__APPLY_OPACITY_TOKEN = window.__APPLY_OPACITY_TOKEN || 0;
     const rows = _getAllRows();
     let maxV = 0;
     const counts = new Map(); // (date|room|hour) -> count
@@ -2340,3 +2378,391 @@ function filterTimelinesToSelectedEmotion() {
     run();
   }
 })();
+// ---- tiny utils ----
+function __hexToRgb(hex) {
+  hex = String(hex || "").trim();
+  if (/^#/.test(hex)) hex = hex.slice(1);
+  if (hex.length === 3)
+    hex = hex
+      .split("")
+      .map((x) => x + x)
+      .join("");
+  const n = parseInt(hex, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+function __getEmotionColorFromLegend(label) {
+  const lis = document.querySelectorAll(".emotions li");
+  for (const li of lis) {
+    const lab = (
+      li.getAttribute("data-emotion") ||
+      li.textContent ||
+      ""
+    ).trim();
+    if (lab.toLowerCase() === label.toLowerCase()) {
+      const c = getComputedStyle(li).getPropertyValue("--c").trim();
+      if (c) return c;
+      const dot = li.querySelector('[style*="--c"]');
+      if (dot) {
+        const d = getComputedStyle(dot).getPropertyValue("--c").trim();
+        if (d) return d;
+      }
+    }
+  }
+  return null;
+}
+function __getRowRoom(r) {
+  return (r.room ?? r.Room ?? r.area ?? r.Area ?? r.stanza ?? r.Stanza ?? "")
+    .toString()
+    .trim();
+}
+function __getRowEmotion(r) {
+  return (r.emotion ?? r.Emotion ?? r.emozione ?? r.Emozione ?? "")
+    .toString()
+    .trim();
+}
+
+// Trova tutti i "riquadri interni" nello SVG centrale e capisci a quale stanza appartengono.
+function __collectInnerNodesByRoom() {
+  const map = new Map();
+  const centerSvg =
+    document.querySelector(".col-center .center-map svg") ||
+    document.querySelector(".col-center svg") ||
+    document.querySelector("svg");
+  if (!centerSvg) return map;
+
+  const inners = centerSvg.querySelectorAll(
+    '[data-role="inner"], .inner-box, [fill="#260F30"], [fill="#260f30"]'
+  );
+
+  inners.forEach((node) => {
+    const g = node.closest("[data-area],[data-room],[aria-label], g");
+    let name = (
+      g?.getAttribute?.("data-area") ||
+      g?.getAttribute?.("data-room") ||
+      g?.getAttribute?.("aria-label") ||
+      ""
+    )
+      .toString()
+      .trim();
+
+    if (!name) {
+      const t = g?.querySelector?.("text")?.textContent?.trim();
+      if (t) name = t;
+    }
+    if (!name) return;
+
+    if (!map.has(name)) map.set(name, []);
+    map.get(name).push(node);
+
+    // Save original fill & fill-opacity once
+    if (node.__origFill === undefined) {
+      node.__origFill = node.getAttribute("fill");
+    }
+    if (node.__origFillOpacity === undefined) {
+      node.__origFillOpacity = node.getAttribute("fill-opacity");
+    }
+  });
+
+  return map;
+}
+
+// Applica il colore dell'emozione selezionata con alpha proporzionale ai voti per stanza
+function applyPerRoomEmotionOpacity(selectedLabel) {
+  // Guard against stale/racing calls
+  try {
+    const curr = (window.__SELECTED_EMOTION_LABEL || "")
+      .toString()
+      .trim()
+      .toLowerCase();
+    const lab = (selectedLabel || "").toString().trim().toLowerCase();
+    if (lab && curr && lab !== curr) return; // stale selection call after a deselect
+    if (!lab && curr) return; // stale reset while a selection is active
+  } catch (e) {}
+
+  const rows = window.__ALL_ROWS || [];
+  const label = (selectedLabel || "").trim();
+  const byRoom = new Map();
+  let total = 0;
+
+  for (const r of rows) {
+    const emo = (__getRowEmotion(r) || "").toLowerCase();
+    if (emo === label.toLowerCase()) {
+      const room = __getRowRoom(r);
+      if (!room) continue;
+      byRoom.set(room, (byRoom.get(room) || 0) + 1);
+      total++;
+    }
+  }
+
+  const innerByRoom = __collectInnerNodesByRoom();
+
+  // Reset if nothing selected or total == 0
+  if (!label || total === 0) {
+    innerByRoom.forEach((nodes) => {
+      nodes.forEach((n) => {
+        if (n.__origFill !== undefined) n.setAttribute("fill", n.__origFill);
+        if (
+          n.__origFillOpacity === undefined ||
+          n.__origFillOpacity === null ||
+          n.__origFillOpacity === "null"
+        ) {
+          n.removeAttribute("fill-opacity");
+        } else {
+          n.setAttribute("fill-opacity", n.__origFillOpacity);
+        }
+      });
+    });
+    return;
+  }
+
+  // Resolve base color
+  let base = __getEmotionColorFromLegend(label) || "#000000";
+  let rgb;
+  if (/^#/.test(base)) {
+    rgb = __hexToRgb(base);
+  } else {
+    const tmp = document.createElement("div");
+    tmp.style.setProperty("color", base);
+    document.body.appendChild(tmp);
+    const c = getComputedStyle(tmp).color;
+    document.body.removeChild(tmp);
+    const m = c.match(/(\d+),\s*(\d+),\s*(\d+)/);
+    rgb = m ? { r: +m[1], g: +m[2], b: +m[3] } : { r: 0, g: 0, b: 0 };
+  }
+
+  innerByRoom.forEach((nodes, roomName) => {
+    const count = byRoom.get(roomName) || 0;
+    const alpha = Math.max(0, Math.min(1, count / total)); // [0..1]
+    const baseFill = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+    nodes.forEach((n) => {
+      n.setAttribute("fill", baseFill);
+      n.setAttribute("fill-opacity", alpha.toFixed(4));
+    });
+  });
+}
+
+/* === Patch: neutralize solid-fill and debug (appended safely) ================== */
+(function () {
+  window.__APPLY_OPACITY_TOKEN = window.__APPLY_OPACITY_TOKEN || 0;
+  try {
+    // Remove solid fill behavior by overriding the function (global scope expected)
+    if (typeof window !== "undefined") {
+      window.colorInnerRooms = function () {
+        /* removed */
+      };
+    }
+    if (typeof colorInnerRooms === "function") {
+      try {
+        colorInnerRooms = function () {
+          /* removed */
+        };
+      } catch (e) {}
+    }
+
+    // Neutralize debug helpers (if referenced anywhere)
+    if (typeof window !== "undefined") {
+      window.__debugLogPerRoomRGBA = function () {};
+      window.__debugLogInnerRoomsCurrent = function () {};
+    }
+    try {
+      __debugLogPerRoomRGBA = function () {};
+    } catch (e) {}
+    try {
+      __debugLogInnerRoomsCurrent = function () {};
+    } catch (e) {}
+
+    // Optional: soften console.table/group to avoid noisy logs (comment out if undesired)
+    if (typeof console !== "undefined") {
+      try {
+        if (typeof console.table === "function") console.table = function () {};
+      } catch (e) {}
+      try {
+        if (typeof console.group === "function") console.group = function () {};
+      } catch (e) {}
+      try {
+        if (typeof console.groupCollapsed === "function")
+          console.groupCollapsed = function () {};
+      } catch (e) {}
+      try {
+        if (typeof console.groupEnd === "function")
+          console.groupEnd = function () {};
+      } catch (e) {}
+    }
+  } catch (e) {
+    // swallow
+  }
+})();
+/* === End patch ================================================================ */
+
+/* ==== OVERRIDES: inner-rooms per-room opacity (clean, no ellipses) ==== */
+
+// Helpers
+function __hexToRgb(hex) {
+  const m = (hex || "")
+    .toString()
+    .trim()
+    .replace("#", "")
+    .match(/^([0-9a-f]{6})$/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+function __getRowEmotion(r) {
+  return (r.emotion || r.Emozione || r.emozione || r.Emotion || "")
+    .toString()
+    .trim();
+}
+function __getRowRoom(r) {
+  const z = window.ZING || {};
+  const areaField =
+    z.areaField ||
+    (function (rows) {
+      if (rows && rows.length) {
+        const keys = Object.keys(rows[0]);
+        const cand = [
+          "area",
+          "Area",
+          "room",
+          "Room",
+          "stanza",
+          "Stanza",
+          "zona",
+          "Zona",
+          "area_name",
+          "AreaName",
+          "Postazione",
+          "postazione",
+        ];
+        for (const k of cand) if (keys.includes(k)) return k;
+      }
+      return null;
+    })(z.rows || []);
+  const val = areaField
+    ? r[areaField]
+    : r.area ||
+      r.Area ||
+      r.room ||
+      r.Room ||
+      r.stanza ||
+      r.Stanza ||
+      r.zona ||
+      r.Zona;
+  return (val || "").toString().trim();
+}
+
+// Gather inner nodes grouped by room name
+function __collectInnerNodesByRoom() {
+  const map = new Map();
+  const centerSvg =
+    document.querySelector(".col-center .center-map svg") ||
+    document.querySelector(".col-center svg") ||
+    document.querySelector("svg");
+  if (!centerSvg) return map;
+
+  const nodes = centerSvg.querySelectorAll(
+    ".room-inner, [data-role='inner'], .inner-box, [fill='#260F30'], [fill='#260f30']"
+  );
+  nodes.forEach((n) => {
+    let name = n.getAttribute("data-areaName") || "";
+    if (!name) {
+      const g = n.closest("[data-area],[data-room],[aria-label]");
+      name =
+        (g &&
+          (g.getAttribute("data-area") ||
+            g.getAttribute("data-room") ||
+            g.getAttribute("aria-label"))) ||
+        "";
+    }
+    if (!name && typeof ROOM_AREA_ORDER !== "undefined") {
+      // fallback by index order
+      const arr = Array.from(nodes);
+      const idx = arr.indexOf(n);
+      name = (ROOM_AREA_ORDER && ROOM_AREA_ORDER[idx]) || "";
+    }
+    if (!map.has(name)) map.set(name, []);
+    map.get(name).push(n);
+
+    if (n.__origFill === undefined) n.__origFill = n.getAttribute("fill");
+    if (n.__origFillOpacity === undefined)
+      n.__origFillOpacity = n.getAttribute("fill-opacity");
+  });
+  return map;
+}
+
+// Main apply function
+function applyPerRoomEmotionOpacity(selectedLabel) {
+  const rows = window.__ALL_ROWS || [];
+  const label = (selectedLabel || "").toString().trim();
+  const innerByRoom = __collectInnerNodesByRoom();
+
+  // Reset if empty label or no selection
+  if (!label) {
+    innerByRoom.forEach((nodes) => {
+      nodes.forEach((n) => {
+        if (n.style) {
+          n.style.removeProperty("fill");
+          n.style.removeProperty("fill-opacity");
+          n.style.removeProperty("opacity");
+          if (n.getAttribute("style") === "") n.removeAttribute("style");
+        }
+      });
+    });
+    return;
+  }
+
+  // Count per room
+  const byRoom = new Map();
+  let total = 0;
+  rows.forEach((r) => {
+    const emo = __getRowEmotion(r);
+    if (emo && emo.toLowerCase() === label.toLowerCase()) {
+      const room = __getRowRoom(r);
+      if (!room) return;
+      byRoom.set(room, (byRoom.get(room) || 0) + 1);
+      total++;
+    }
+  });
+
+  // Base color from legend or palette
+  const baseCss =
+    (typeof resolveEmotionColor === "function"
+      ? resolveEmotionColor(label)
+      : null) ||
+    (typeof getEmotionColor === "function" ? getEmotionColor(label) : null) ||
+    (EMO_COLORS && (EMO_COLORS.get ? EMO_COLORS.get(label) : null)) ||
+    "#000";
+  let rgb = null;
+  if (/^#/.test(baseCss)) rgb = __hexToRgb(baseCss);
+  if (!rgb) {
+    const tmp = document.createElement("div");
+    tmp.style.color = baseCss;
+    document.body.appendChild(tmp);
+    const c = getComputedStyle(tmp).color;
+    document.body.removeChild(tmp);
+    const m = c && c.match(/(\d+),\s*(\d+),\s*(\d+)/);
+    rgb = m ? { r: +m[1], g: +m[2], b: +m[3] } : { r: 0, g: 0, b: 0 };
+  }
+  const baseFill = `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`;
+
+  innerByRoom.forEach((nodes, roomName) => {
+    const count = byRoom.get(roomName) || 0;
+    const alpha = total > 0 ? Math.max(0, Math.min(1, count / total)) * 3 : 0;
+    nodes.forEach((n) => {
+      n.setAttribute("fill", baseFill);
+      n.setAttribute("fill-opacity", alpha.toFixed(4));
+      if (n.style && n.style.setProperty) {
+        n.style.setProperty("fill", baseFill, "important");
+        n.style.setProperty("fill-opacity", String(alpha));
+      }
+    });
+  });
+}
+
+// Make sure theme recolor won't overwrite inner rooms — already patched above.
+
+// Ensure initial apply uses current selection if any (after first render)
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    applyPerRoomEmotionOpacity(window.__SELECTED_EMOTION_LABEL || null);
+  } catch (e) {}
+});
