@@ -373,8 +373,9 @@ function createChart({
       .axisLeft(y)
       .tickValues(ticks)
       .tickFormat(d3.timeFormat("%H"))
-      .tickSize(0);
+      .tickSize(10);
     g.append("g").attr("class", "axis").call(axis);
+    g.select(".axis .domain").remove();
 
     const hasData = Array.from(state.slotDominants.values()).some(
       (v) => v !== "—"
@@ -1513,13 +1514,13 @@ d3.selectAll(".emotions li").on("click", function () {
     // maps must be lower-case for lookups
     const DARK_MAP = {
       "#c7c7c7": "#21082b",
-      "#f3f3f3": "#2B0F33",
+      "#f3f3f3": "#2b0f33",
       "#e3e3e2": "#260f30",
       "#d7d7d7": "#21082b",
     };
     const LIGHT_MAP = {
       "#21082b": "#c7c7c7",
-      "#2B0F33": "#f3f3f3",
+      "#2b0f33": "#f3f3f3",
       "#260f30": "#e3e3e2",
       "#21082B": "#d7d7d7",
     };
@@ -1588,13 +1589,13 @@ d3.selectAll(".emotions li").on("click", function () {
     function updateSvgColors(toDark) {
       const DARK_MAP = {
         "#c7c7c7": "#21082b",
-        "#f3f3f3": "#2B0F33",
+        "#f3f3f3": "#2b0f33",
         "#e3e3e2": "#260f30",
         "#d7d7d7": "#21082b",
       };
       const LIGHT_MAP = {
         "#21082b": "#c7c7c7",
-        "#2B0F33": "#f3f3f3",
+        "#2b0f33": "#f3f3f3",
         "#260f30": "#e3e3e2",
         "#21082B": "#d7d7d7",
       };
