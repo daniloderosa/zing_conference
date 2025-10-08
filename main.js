@@ -1259,30 +1259,133 @@ d3.selectAll(".emotions li").on("click", function () {
   function initInnerRoomsOnce() {
     if (INNER_NODES.length) return; // già fatto
     INNER_NODES = collectInnerRooms();
-
+    // Build unique parent <g> groups for those inner paths
+    let GROUP_NODES = [];
+    (function () {
+      const seen = new Set();
+      INNER_NODES.forEach((el) => {
+        const g = el.closest && el.closest("g");
+        if (g && !seen.has(g)) {
+          seen.add(g);
+          // propagate areaName to group if present on path
+          if (!g.dataset.areaName && el.dataset.areaName)
+            g.dataset.areaName = el.dataset.areaName;
+          GROUP_NODES.push(g);
+        }
+      });
+    })();
     try {
       if (Array.isArray(ROOM_AREA_ORDER) && INNER_NODES.length === 9) {
         INNER_NODES.forEach((n, i) => {
           n.dataset.areaName = ROOM_AREA_ORDER[i] || "";
         });
+        if (GROUP_NODES && GROUP_NODES.length === 9) {
+          GROUP_NODES.forEach((g, i) => {
+            if (!g.dataset.areaName)
+              g.dataset.areaName = ROOM_AREA_ORDER[i] || "";
+          });
+        }
       }
     } catch (e) {}
 
-    INNER_NODES.forEach((n) => {
-      n.addEventListener(
-        "click",
-        () => {
-          const areaName = n.dataset.areaName || "";
-          const cm = document.querySelector(".center-map");
-          if (cm) cm.style.display = "none";
-          const overlay = document.getElementById("room-overlay");
-          if (overlay) overlay.classList.add("active");
-          if (window.updateSvgColors)
-            window.updateSvgColors(
-              document.body.getAttribute("data-theme") === "dark"
-            );
-          if (areaName) {
-            try {
+    /* listener moved from paths to parent groups */
+    if (GROUP_NODES && GROUP_NODES.length) {
+      GROUP_NODES.forEach((n) => {
+        n.addEventListener(
+          "click",
+          () => {
+            const path =
+              n.querySelector && n.querySelector(".room-inner, .inner-room");
+            const areaName =
+              (n.dataset && n.dataset.areaName) ||
+              (path && path.dataset ? path.dataset.areaName : "") ||
+              "";
+            const cm = document.querySelector(".center-map");
+            if (cm) cm.style.display = "none";
+            const overlay = document.getElementById("room-overlay");
+            if (overlay) overlay.classList.add("active");
+            if (window.updateSvgColors)
+              window.updateSvgColors(
+                document.body.getAttribute("data-theme") === "dark"
+              );
+            if (areaName) {
+              try {
+                updateOverlayMetrics(areaName);
+                (function () {
+                  window.__APPLY_OPACITY_TOKEN =
+                    window.__APPLY_OPACITY_TOKEN || 0;
+                  const active = document.querySelector(".emotions li.active");
+                  let c = null;
+                  if (active) {
+                    let v = getComputedStyle(active)
+                      .getPropertyValue("--c")
+                      .trim();
+                    if (!v) {
+                      const dot = active.querySelector('i,[style*="--c"]');
+                      if (dot)
+                        v = getComputedStyle(active)
+                          .getPropertyValue("--c")
+                          .trim();
+                    }
+                    c = v || null;
+                  }
+                  window.__SELECTED_EMOTION_COLOR = c || null;
+                  updateStackedBarColors(window.__SELECTED_EMOTION_COLOR);
+                })();
+                requestAnimationFrame(() => positionRoomMetrics());
+
+                window.ZING = window.ZING || {};
+                window.ZING.currentArea = areaName;
+                var __blk = document.querySelector(".room-metrics-emotion");
+                if (__blk) __blk.style.display = "none";
+                window.ZING.currentArea = areaName;
+                updateRightColumnForArea(window.ZING.currentArea);
+              } catch (e) {}
+            }
+          },
+          true
+        );
+      });
+    }
+    // Map inner rooms (TL->BR) to area names
+    try {
+      if (Array.isArray(ROOM_AREA_ORDER) && INNER_NODES.length === 9) {
+        INNER_NODES.forEach((n, i) => {
+          n.dataset.areaName = ROOM_AREA_ORDER[i] || "";
+        });
+        if (GROUP_NODES && GROUP_NODES.length === 9) {
+          GROUP_NODES.forEach((g, i) => {
+            if (!g.dataset.areaName)
+              g.dataset.areaName = ROOM_AREA_ORDER[i] || "";
+          });
+        }
+      }
+    } catch (e) {}
+
+    // Click => show overlay, update header+bar, and log
+    /* listener moved from paths to parent groups */
+    if (GROUP_NODES && GROUP_NODES.length) {
+      GROUP_NODES.forEach((n) => {
+        n.addEventListener(
+          "click",
+          () => {
+            const path =
+              n.querySelector && n.querySelector(".room-inner, .inner-room");
+            const areaName =
+              (n.dataset && n.dataset.areaName) ||
+              (path && path.dataset ? path.dataset.areaName : "") ||
+              "";
+            // show overlay
+            const cm = document.querySelector(".center-map");
+            if (cm) cm.style.display = "none";
+            const overlay = document.getElementById("room-overlay");
+            if (overlay) overlay.classList.add("active");
+            if (window.updateSvgColors)
+              window.updateSvgColors(
+                document.body.getAttribute("data-theme") === "dark"
+              );
+            // update metrics
+            if (areaName) {
               updateOverlayMetrics(areaName);
               (function () {
                 window.__APPLY_OPACITY_TOKEN =
@@ -1307,91 +1410,49 @@ d3.selectAll(".emotions li").on("click", function () {
               })();
               requestAnimationFrame(() => positionRoomMetrics());
 
-              window.ZING = window.ZING || {};
-              window.ZING.currentArea = areaName;
-              var __blk = document.querySelector(".room-metrics-emotion");
-              if (__blk) __blk.style.display = "none";
-              window.ZING.currentArea = areaName;
-              updateRightColumnForArea(window.ZING.currentArea);
-            } catch (e) {}
-          }
-        },
-        true
-      );
-    });
-    // Map inner rooms (TL->BR) to area names
-    try {
-      if (Array.isArray(ROOM_AREA_ORDER) && INNER_NODES.length === 9) {
-        INNER_NODES.forEach((n, i) => {
-          n.dataset.areaName = ROOM_AREA_ORDER[i] || "";
-        });
-      }
-    } catch (e) {}
-
-    // Click => show overlay, update header+bar, and log
-    INNER_NODES.forEach((n) => {
-      n.addEventListener(
-        "click",
-        () => {
-          const areaName = n.dataset.areaName || "";
-          // show overlay
-          const cm = document.querySelector(".center-map");
-          if (cm) cm.style.display = "none";
-          const overlay = document.getElementById("room-overlay");
-          if (overlay) overlay.classList.add("active");
-          if (window.updateSvgColors)
-            window.updateSvgColors(
-              document.body.getAttribute("data-theme") === "dark"
-            );
-          // update metrics
-          if (areaName) {
-            updateOverlayMetrics(areaName);
-            (function () {
-              window.__APPLY_OPACITY_TOKEN = window.__APPLY_OPACITY_TOKEN || 0;
-              const active = document.querySelector(".emotions li.active");
-              let c = null;
-              if (active) {
-                let v = getComputedStyle(active).getPropertyValue("--c").trim();
-                if (!v) {
-                  const dot = active.querySelector('i,[style*="--c"]');
-                  if (dot)
-                    v = getComputedStyle(active).getPropertyValue("--c").trim();
-                }
-                c = v || null;
-              }
-              window.__SELECTED_EMOTION_COLOR = c || null;
-              updateStackedBarColors(window.__SELECTED_EMOTION_COLOR);
-            })();
-            requestAnimationFrame(() => positionRoomMetrics());
-
-            try {
-              logEmotionsForArea && logEmotionsForArea(areaName);
-            } catch (e) {}
-          }
-        },
-        true
-      );
-    });
+              try {
+                logEmotionsForArea && logEmotionsForArea(areaName);
+              } catch (e) {}
+            }
+          },
+          true
+        );
+      });
+    }
     // Map 9 inner nodes to area names using ROOM_AREA_ORDER (top-left to bottom-right)
     try {
       if (Array.isArray(ROOM_AREA_ORDER) && INNER_NODES.length === 9) {
         INNER_NODES.forEach((n, i) => {
           n.dataset.areaName = ROOM_AREA_ORDER[i] || "";
         });
+        if (GROUP_NODES && GROUP_NODES.length === 9) {
+          GROUP_NODES.forEach((g, i) => {
+            if (!g.dataset.areaName)
+              g.dataset.areaName = ROOM_AREA_ORDER[i] || "";
+          });
+        }
       }
     } catch (e) {}
 
     // Click: log emotions for clicked room (console)
-    INNER_NODES.forEach((n) => {
-      n.addEventListener(
-        "click",
-        () => {
-          const areaName = n.dataset.areaName || "";
-          if (areaName) logEmotionsForArea(areaName);
-        },
-        true
-      );
-    });
+    /* listener moved from paths to parent groups */
+    if (GROUP_NODES && GROUP_NODES.length) {
+      GROUP_NODES.forEach((n) => {
+        n.addEventListener(
+          "click",
+          () => {
+            const path =
+              n.querySelector && n.querySelector(".room-inner, .inner-room");
+            const areaName =
+              (n.dataset && n.dataset.areaName) ||
+              (path && path.dataset ? path.dataset.areaName : "") ||
+              "";
+            if (areaName) logEmotionsForArea(areaName);
+          },
+          true
+        );
+      });
+    }
     // Non coloriamo nulla: lasciamo i fill "di fabbrica" (default dell'SVG)
   }
 
@@ -1452,11 +1513,15 @@ d3.selectAll(".emotions li").on("click", function () {
     // maps must be lower-case for lookups
     const DARK_MAP = {
       "#c7c7c7": "#21082b",
-      "#f3f3f3": "#281636",
+      "#f3f3f3": "#2B0F33",
+      "#e3e3e2": "#260f30",
+      "#d7d7d7": "#21082b",
     };
     const LIGHT_MAP = {
       "#21082b": "#c7c7c7",
-      "#281636": "#f3f3f3",
+      "#2B0F33": "#f3f3f3",
+      "#260f30": "#e3e3e2",
+      "#21082B": "#d7d7d7",
     };
 
     function lower(s) {
@@ -1523,11 +1588,15 @@ d3.selectAll(".emotions li").on("click", function () {
     function updateSvgColors(toDark) {
       const DARK_MAP = {
         "#c7c7c7": "#21082b",
-        "#f3f3f3": "#281636",
+        "#f3f3f3": "#2B0F33",
+        "#e3e3e2": "#260f30",
+        "#d7d7d7": "#21082b",
       };
       const LIGHT_MAP = {
         "#21082b": "#c7c7c7",
-        "#281636": "#f3f3f3",
+        "#2B0F33": "#f3f3f3",
+        "#260f30": "#e3e3e2",
+        "#21082B": "#d7d7d7",
       };
       const map = toDark ? DARK_MAP : LIGHT_MAP;
 
