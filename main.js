@@ -26,6 +26,22 @@ function getEmotionColor(emotionLabel) {
   // fallback to text color var
   return getCssVar("--text") || "#000";
 }
+// === Overlay gate: pausa refresh quando l’overlay stanza è aperto ===
+window.__isOverlayOpen =
+  window.__isOverlayOpen ||
+  function () {
+    try {
+      // Segnale di stato app (viene impostato quando entri in una stanza)
+      if (window.ZING && window.ZING.currentArea) return true;
+      // Segnale DOM (overlay/pannello visibile)
+      const el = document.querySelector(
+        "#room-overlay.active, .room-panel.active, .area-overlay.active"
+      );
+      return !!(el && el.offsetParent !== null);
+    } catch (e) {
+      return false;
+    }
+  };
 
 /* ===========================================================================
 Z!NG • EMOTIONAL JOURNEY • main.js (FULL, COMMENTED)
@@ -439,6 +455,22 @@ function createChart({
       groups
         .select("rect.bar-fill")
         .each(function (d) {
+          // === Pause gate: overlay detection ===
+          (function () {
+            if (!window.__isOverlayOpen) {
+              window.__isOverlayOpen = function () {
+                try {
+                  if (window.ZING && window.ZING.currentArea) return true; // app state says overlay open
+                  const el = document.querySelector(
+                    ".room-overlay, .room-panel, .area-overlay, .room-metrics"
+                  );
+                  if (el && el.offsetParent !== null) return true; // visible
+                } catch (e) {}
+                return false;
+              };
+            }
+          })();
+
           const keyNum = +d.s; // inizio ora come number
           const counts =
             (state.hourCounts && state.hourCounts.get(keyNum)) || new Map();
@@ -746,6 +778,13 @@ function resolveEmotionColor(label) {
 }
 
 async function loadAndRenderBoth() {
+  // Skip refresh while overlay is open
+  try {
+    if (window.__isOverlayOpen && window.__isOverlayOpen()) {
+      return;
+    }
+  } catch (e) {}
+
   try {
     // 1) fetch grezzo
     // 1) fetch grezzo
@@ -1067,8 +1106,14 @@ function colorRoomBordersByTopEmotion(rows) {
 }
 
 loadAndRenderBoth();
-setInterval(loadAndRenderBoth, 60 * 1000);
-// setInterval(loadAndRenderBoth, 10 * 1000); // test rapido
+setInterval(function () {
+  try {
+    if (!(window.__isOverlayOpen && window.__isOverlayOpen()))
+      loadAndRenderBoth();
+  } catch (e) {}
+}, 60 * 1000);
+
+// setInterval(function(){ try{ if (!(window.__isOverlayOpen && window.__isOverlayOpen())) loadAndRenderBoth(); }catch(e){} }, 10 * 1000); // test rapido
 
 // ------- Legend interaction: highlight bars by emotion -------
 
@@ -1634,6 +1679,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (overlay) overlay.classList.remove("active");
       const cm = document.querySelector(".center-map");
       if (cm) cm.style.display = "flex";
+      if (window.ZING) {
+        window.ZING.currentArea = null;
+      }
       clearRightColumnFilter();
       if (typeof ensureTimelineColorsAndFilter === "function")
         ensureTimelineColorsAndFilter();
