@@ -1526,12 +1526,14 @@ d3.selectAll(".emotions li").on("click", function () {
       "#f3f3f3": "#2b0f33",
       "#e3e3e2": "#260f30",
       "#d7d7d7": "#21082b",
+      "#373737": "#ffffff",
     };
     const LIGHT_MAP = {
       "#21082b": "#c7c7c7",
       "#2b0f33": "#f3f3f3",
       "#260f30": "#e3e3e2",
       "#21082B": "#d7d7d7",
+      "#ffffff": "#373737",
     };
 
     function lower(s) {
@@ -1585,6 +1587,7 @@ d3.selectAll(".emotions li").on("click", function () {
       const roots = [
         document.querySelector(".col-center svg"),
         document.querySelector("#room-overlay svg"),
+        document.querySelector(".col-left svg"),
       ].filter(Boolean);
       roots.forEach((r) => recolorRootSvg(r, !!toDark));
     }
