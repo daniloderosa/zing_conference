@@ -864,6 +864,15 @@ async function loadAndRenderBoth() {
     } catch (e) {
       console.warn("ZING expose failed", e);
     }
+
+    // >>> Color overview lanterns by top emotion per room
+    try {
+      if (typeof window.colorOverviewLanternsByTopEmotion === "function") {
+        window.colorOverviewLanternsByTopEmotion(rows);
+      }
+    } catch (e) {
+      console.warn("[Lanterns] apply failed", e);
+    }
     // console.debug("[DBG] day1:", rowsDay1.length, "day2:", rowsDay2.length);
 
     // (opzionale) svuota prima, se i componenti non rimuovono da soli
@@ -2884,3 +2893,146 @@ document.addEventListener("DOMContentLoaded", function () {
     applyPerRoomEmotionOpacity(window.__SELECTED_EMOTION_LABEL || null);
   } catch (e) {}
 });
+
+/* === [OVERVIEW LANTERNS] Color by top emotion per room ===================== */
+(function () {
+  // Expose as global for debugging or manual re-apply
+  function colorOverviewLanternsByTopEmotion(rows) {
+    try {
+      const svg =
+        document.querySelector(".col.col-center svg") ||
+        document.querySelector(".center-map svg") ||
+        document.querySelector("main .col-center svg") ||
+        document.querySelector("svg");
+      if (!svg) return;
+      if (!rows || !rows.length) return;
+
+      const normArea =
+        typeof __normArea === "function"
+          ? __normArea
+          : (v) => (v ?? "").toString().trim();
+      const normEmo =
+        typeof __normEmo === "function"
+          ? __normEmo
+          : (v) => (v ?? "").toString().trim();
+
+      const areaField =
+        window.ZING && window.ZING.areaField
+          ? window.ZING.areaField
+          : typeof detectAreaField === "function"
+          ? detectAreaField(rows)
+          : null;
+      const emoField =
+        window.ZING && window.ZING.emoField
+          ? window.ZING.emoField
+          : typeof detectEmotionField === "function"
+          ? detectEmotionField(rows)
+          : null;
+      if (!areaField || !emoField) {
+        console.warn("[Lanterns] Missing area/emotion field; abort.", {
+          areaField,
+          emoField,
+        });
+        return;
+      }
+
+      // Build counts: area -> (emotion -> n)
+      const byArea = new Map();
+      for (const r of rows) {
+        // optional: skip placeholder rows
+        if (typeof __isRealFeedRow === "function" && !__isRealFeedRow(r))
+          continue;
+        const a = normArea(r[areaField]);
+        const e = normEmo(r[emoField]);
+        if (!a || !e) continue;
+        let em = byArea.get(a);
+        if (!em) {
+          em = new Map();
+          byArea.set(a, em);
+        }
+        em.set(e, (em.get(e) || 0) + 1);
+      }
+
+      // Determine dominant per area
+      const order = Array.isArray(window.ROOM_AREA_ORDER)
+        ? window.ROOM_AREA_ORDER.slice()
+        : Array.from(byArea.keys());
+      const dominant = new Map();
+      for (const areaName of order) {
+        const key = normArea(areaName);
+        const em = byArea.get(key) || byArea.get(areaName) || new Map();
+        let best = null,
+          max = -1;
+        for (const [emo, n] of em.entries()) {
+          if (!emo) continue;
+          if (n > max) {
+            max = n;
+            best = emo;
+          }
+        }
+        dominant.set(key, { emotion: best, count: max });
+      }
+
+      // Helper to resolve color
+      function _resolveColor(emo) {
+        if (!emo) return "#C7C7C7";
+        try {
+          if (typeof resolveEmotionColor === "function") {
+            const c = resolveEmotionColor(emo);
+            if (c) return c;
+          }
+        } catch {}
+        try {
+          if (typeof getEmotionColor === "function") {
+            const c = getEmotionColor(emo);
+            if (c) return c;
+          }
+        } catch {}
+        try {
+          if (
+            window.EMO_COLORS &&
+            typeof window.EMO_COLORS.get === "function"
+          ) {
+            const c = window.EMO_COLORS.get(emo);
+            if (c) return c;
+          }
+        } catch {}
+        return "#C7C7C7";
+      }
+
+      // Apply to .room-1 ... .room-9
+      for (let i = 0; i < order.length; i++) {
+        const areaName = order[i];
+        const info = dominant.get(normArea(areaName)) || dominant.get(areaName);
+        const emo = info ? info.emotion : null;
+        const col = _resolveColor(emo);
+        const sel = `path.room-${i + 1}`;
+        const node = svg.querySelector(sel);
+        if (!node) continue;
+
+        if (typeof d3 !== "undefined") {
+          d3.select(node)
+            .transition()
+            .duration(400)
+            .attr("fill", col)
+            .attr("opacity", emo ? 1 : 0.25)
+            .attr("data-emo", emo || "none");
+        } else {
+          node.setAttribute("fill", col);
+          node.setAttribute("opacity", emo ? "1" : "0.25");
+          node.setAttribute("data-emo", emo || "none");
+        }
+      }
+
+      // store last state for potential re-apply
+      try {
+        window.__LAST_LANTERN_ROWS = rows;
+      } catch {}
+    } catch (e) {
+      console.warn("[Lanterns] failed:", e);
+    }
+  }
+
+  // Expose globally
+  window.colorOverviewLanternsByTopEmotion = colorOverviewLanternsByTopEmotion;
+})();
