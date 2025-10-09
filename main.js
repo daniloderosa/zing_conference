@@ -1581,6 +1581,11 @@ d3.selectAll(".emotions li").on("click", function () {
         if (isInner(el)) {
           return;
         }
+
+        const __cls = (el.getAttribute("class") || "").toLowerCase();
+        if (/\broom-\d+\b/.test(__cls)) {
+          return;
+        }
         const f = el.getAttribute("fill");
         if (f) {
           const key = lower(f);
@@ -3057,4 +3062,42 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Expose globally
   window.colorOverviewLanternsByTopEmotion = colorOverviewLanternsByTopEmotion;
+})();
+
+/* === Re-apply overview lantern colors when DOM/theme are ready or change === */
+function reapplyLanternsSoon() {
+  try {
+    const rows = (window.ZING && window.ZING.rows) || [];
+    if (
+      rows.length &&
+      typeof window.colorOverviewLanternsByTopEmotion === "function"
+    ) {
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          window.colorOverviewLanternsByTopEmotion(rows);
+        })
+      );
+    }
+  } catch (e) {
+    /* noop */
+  }
+}
+// Observe theme changes
+(function () {
+  try {
+    new MutationObserver(() => reapplyLanternsSoon()).observe(document.body, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+  } catch (e) {}
+})();
+// Observe central SVG changes
+(function () {
+  try {
+    const root = document.querySelector(".col-center") || document;
+    new MutationObserver(() => reapplyLanternsSoon()).observe(root, {
+      childList: true,
+      subtree: true,
+    });
+  } catch (e) {}
 })();
