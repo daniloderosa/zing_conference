@@ -387,6 +387,26 @@ function createChart({
     const gap = 2,
       leftPad = 12,
       rightPad = 10;
+    const padPx = margin.right + rightPad + "px";
+
+    // 1) sottotitoli sopra i due grafici
+    if (svgId === "chart-day1") {
+      const t1 = document.getElementById("day1-subtitle");
+      if (t1) t1.style.paddingRight = padPx;
+    } else if (svgId === "chart-day2") {
+      const t2 = document.getElementById("day2-subtitle");
+      if (t2) t2.style.paddingRight = padPx;
+
+      // 2) footer colonna destra: usa la stessa fine-barre del grafico di destra
+      const totalNum = document.getElementById("total-reactions-all");
+      if (totalNum) {
+        const totalWrap = totalNum.parentElement; // il div che contiene numero + label
+        if (totalWrap) totalWrap.style.paddingRight = padPx;
+      }
+
+      const common = document.getElementById("common-emotion-tag");
+      if (common) common.style.paddingRight = padPx;
+    }
     const barW = Math.max(0, innerW - leftPad - rightPad);
     const slotStarts = d3.timeMinute.every(10).range(DAY_START, DAY_END);
     const barsData = slotStarts.map((s) => {
@@ -406,7 +426,6 @@ function createChart({
       };
     });
 
-    // --- RIMPIAZZA DA QUI ---
     const gBars = g.append("g").attr("class", "slot-bars");
 
     // selezione attuale dalla legenda (se presente, attivo "stacked")
