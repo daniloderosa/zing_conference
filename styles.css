@@ -791,7 +791,7 @@ body[data-theme="dark"] {
   top: 14%;
 }
 #room-overlay .room-metrics-emotion {
-  top: 25%;
+  top: 27%;
   margin-top: 0;
 }
 
@@ -809,7 +809,7 @@ body[data-theme="dark"] {
 /* === Hourly (Affluenza oraria) — posizionato sotto i due stacked === */
 #room-overlay #hourly-block {
   position: absolute;
-  right: 22%; /* stesso ancoraggio del blocco emozione */
+  right: 19%; /* stesso ancoraggio del blocco emozione */
   left: auto; /* importante: niente left */
   width: 20%; /* stessa larghezza del blocco emozione */
   top: 45%; /* sotto .room-metrics-emotion (che hai a top:25%) */
@@ -827,9 +827,7 @@ body[data-theme="dark"] {
 
 #room-overlay #hourly-block h3 {
   margin: 0;
-  font-size: 18px;
   line-height: 1.2;
-  font-weight: 700;
 }
 
 #room-overlay #hourly-block .hourly-date-switch {
@@ -971,4 +969,163 @@ p,
 .emotions li,
 .room-metrics {
   font-family: "Manrope", sans-serif;
+}
+
+/* === Typography spec from brief (Manrope, sizes in px converted from pt) === */
+:root {
+  --fs-12pt: 12px;
+  --fs-16pt: 16px;
+  --fs-18pt: 18px;
+  --fs-20pt: 20px;
+  --fs-28pt: 28px;
+  --fs-36pt: 36px;
+}
+
+/* Intro texts (left column) */
+.col-left .intro,
+.col-left .helper {
+  font-family: "Manrope", sans-serif;
+  font-weight: 400;
+  font-size: var(--fs-16pt);
+  line-height: 1.35;
+}
+
+/* Legend */
+.emotions li {
+  font-family: "Manrope", sans-serif;
+  font-weight: 600;
+  font-size: var(--fs-20pt);
+  /*margin: 8px 0 6px 0;*/
+}
+
+/* Main composite title (right column) */
+.rightcol-title {
+  font-family: "Manrope", sans-serif;
+}
+.rightcol-title .title-strong {
+  font-weight: 700;
+  font-size: var(--fs-20pt);
+}
+.rightcol-title .title-regular {
+  font-weight: 400;
+  font-size: var(--fs-20pt);
+}
+
+/* Day subtitles above charts */
+#day1-subtitle,
+#day2-subtitle {
+  font-family: "Manrope", sans-serif;
+  font-weight: 600; /* 600 per brief */
+  font-size: var(--fs-18pt);
+}
+
+/* Axis labels on right charts */
+.col-right svg .axis text {
+  font-family: "Manrope", sans-serif;
+  font-weight: 400;
+  font-size: var(--fs-20pt);
+}
+
+/* Totals row */
+.rightcol-summary .total-reactions {
+  font-family: "Manrope", sans-serif;
+  font-weight: 400; /* label weight */
+  font-size: var(--fs-28pt); /* label size */
+}
+#total-reactions-all {
+  font-family: "Manrope", sans-serif;
+  font-weight: 700;
+  font-size: var(--fs-36pt);
+}
+
+/* Common emotion row */
+.common-emotion .label {
+  font-family: "Manrope", sans-serif;
+  font-weight: 400;
+  font-size: var(--fs-20pt);
+}
+#common-emotion-tag .name {
+  font-family: "Manrope", sans-serif;
+  font-weight: 700;
+  font-size: var(--fs-20pt);
+}
+
+/* Overlay inside room */
+#room-count {
+  font-family: "Manrope", sans-serif;
+  font-weight: 700;
+  font-size: var(--fs-36pt);
+}
+.room-header .divider,
+#total-count,
+.room-header .label,
+#emo-room-total {
+  font-family: "Manrope", sans-serif;
+  font-weight: 400;
+  font-size: var(--fs-16pt);
+}
+#emo-count {
+  font-family: "Manrope", sans-serif;
+  font-weight: 700;
+  font-size: var(--fs-36pt);
+}
+
+/* Overlay section headers */
+#hourly-block h3 {
+  font-family: "Manrope", sans-serif;
+  font-weight: 700;
+  font-size: var(--fs-16pt);
+}
+/* "Stanze" back button */
+#close-overlay {
+  font-family: "Manrope", sans-serif;
+  font-weight: 600;
+  font-size: var(--fs-20pt);
+}
+/* Axis labels on affluenza oraria chart */
+#hourly-block svg [class*="axis"] text {
+  font-family: "Manrope", sans-serif !important;
+  font-weight: 400 !important;
+  font-size: var(--fs-12pt);
+}
+/* HOW-TO list (colonna sinistra) */
+.howto {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.howto li {
+  display: grid;
+  grid-template-columns: auto 1fr; /* icona + testo */
+  column-gap: 12px;
+  align-items: start;
+  padding: 12px 0;
+}
+.howto .icon {
+  width: 36px;
+  height: 36px;
+  margin-left: 30px;
+}
+.howto .copy .t {
+  display: block;
+  font-family: "Manrope", sans-serif;
+  font-weight: 700;
+  font-size: var(--fs-18pt);
+  line-height: 1.2;
+}
+.howto .copy .d {
+  display: block;
+  margin-top: 2px;
+  font-family: "Manrope", sans-serif;
+  font-weight: 400;
+  font-size: var(--fs-16pt);
+  line-height: 1.35;
+  color: var(--text, #373737);
+}
+
+/* opzionale: separatore orizzontale tra la 2ª e 3ª voce come nello screenshot */
+.howto li + li.hr {
+  border-top: 1px solid rgba(0, 0, 0, 0.15);
+  margin-top: 12px;
+  padding-top: 24px;
 }

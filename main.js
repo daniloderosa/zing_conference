@@ -860,11 +860,6 @@ async function loadAndRenderBoth() {
     const el2 = document.getElementById("day2-subtitle");
     if (el2) el2.textContent = day2Date ? formatDaySubhead(day2Date) : "—";
 
-    // opzionale: se vuoi anche impostare/garantire il titolo unico a destra
-    const rightTitle = document.querySelector(".col-right .rightcol-title");
-    if (rightTitle)
-      rightTitle.textContent = "Emozioni in stanza, durante il giorno";
-
     const rowsDay1 = rows.filter(
       (r) => String(r.giorno) === "1" || (day1Date && r.date === day1Date)
     );
