@@ -91,6 +91,90 @@ const ROOM_AREA_ORDER = [
   "Z Factor",
 ];
 
+// --- Room title/icon loader (SVG preferred, PNG fallback) ---
+const ROOM_ICON_CACHE = new Map(); // slug -> {type:'svg'|'img', content:Node}
+function slugifyRoom(name) {
+  return (name || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/&/g, "e")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Carica l'icona della stanza.
+ * 1) prova /assets/rooms/<slug>.svg e inietta inline
+ * 2) se fallisce, usa /assets/rooms/<slug>.png come <img>
+ * Cache: evita richieste ripetute.
+ */
+async function loadRoomIcon(slug) {
+  if (!slug) return null;
+  if (ROOM_ICON_CACHE.has(slug)) return ROOM_ICON_CACHE.get(slug);
+
+  // tenta SVG
+  try {
+    const res = await fetch(`./assets/rooms/${slug}.svg`, {
+      cache: "force-cache",
+    });
+    if (res.ok) {
+      const svgText = await res.text();
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = svgText.trim();
+      const svg = wrapper.querySelector("svg");
+      if (svg) {
+        svg.classList.add("icon-svg", `icon-${slug}`);
+        const record = { type: "svg", content: svg };
+        ROOM_ICON_CACHE.set(slug, record);
+        return record;
+      }
+    }
+  } catch (e) {}
+
+  // fallback PNG
+  const img = document.createElement("img");
+  img.src = `./assets/rooms/${slug}.png`;
+  img.alt = "";
+  img.decoding = "async";
+  img.loading = "lazy";
+  img.className = `icon-img icon-${slug}`;
+  const record = { type: "img", content: img };
+  ROOM_ICON_CACHE.set(slug, record);
+  return record;
+}
+
+async function renderRoomTitle(areaName) {
+  const iconHost = document.getElementById("room-title-icon");
+  const textHost = document.getElementById("room-title-text");
+  if (!iconHost || !textHost) return;
+
+  // testo
+  // set testo provvisorio (verrà nascosto se l\'icona include già il titolo)
+  textHost.textContent = areaName || "";
+
+  // pulisci icona precedente
+  iconHost.innerHTML = "";
+
+  if (!areaName) return;
+
+  const slug = slugifyRoom(areaName);
+  const rec = await loadRoomIcon(slug);
+  if (rec && rec.content) {
+    iconHost.appendChild(rec.content.cloneNode(true));
+    // Se abbiamo un'icona (SVG o PNG), nascondi il testo duplicato
+    // poiché spesso il file grafico contiene già il nome della stanza
+    textHost.textContent = "";
+  }
+  // Normalizza l’SVG iniettato: niente width/height fissi, mantieni aspect ratio
+  const svgEl = iconHost.querySelector("svg");
+  if (svgEl) {
+    svgEl.removeAttribute("width");
+    svgEl.removeAttribute("height");
+    svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+  }
+}
+
 const EMO_COLORS = new Map([
   ["Curiosità", "#2ECC71"],
   ["Entusiasmo", "#F1C40F"],
@@ -1335,6 +1419,7 @@ d3.selectAll(".emotions li").on("click", function () {
             if (areaName) {
               try {
                 updateOverlayMetrics(areaName);
+                renderRoomTitle(areaName);
                 (function () {
                   window.__APPLY_OPACITY_TOKEN =
                     window.__APPLY_OPACITY_TOKEN || 0;
@@ -1411,6 +1496,7 @@ d3.selectAll(".emotions li").on("click", function () {
             // update metrics
             if (areaName) {
               updateOverlayMetrics(areaName);
+              renderRoomTitle(areaName);
               (function () {
                 window.__APPLY_OPACITY_TOKEN =
                   window.__APPLY_OPACITY_TOKEN || 0;
@@ -3096,3 +3182,129 @@ function reapplyLanternsSoon() {
     });
   } catch (e) {}
 })();
+
+/* ================== ZING PATCH: Room Title Icon (No-Text) ==================
+   This block overrides any previous renderRoomTitle/loadRoomIcon implementations
+   and guarantees ONLY ONE icon node is present in #room-title-icon at all times.
+   It also ignores room text (SVGs already include it), normalizes SVG sizing,
+   and adds a MutationObserver to dedupe if other scripts append again.
+============================================================================= */
+
+(function () {
+  // Simple slug, stable across accents & punctuation
+  function slugifyRoom(name) {
+    return (name || "")
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase()
+      .replace(/&/g, "e")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  const ROOM_ICON_CACHE = (window.__ZING_ROOM_ICON_CACHE__ =
+    window.__ZING_ROOM_ICON_CACHE__ || new Map());
+
+  async function loadRoomIcon(slug) {
+    if (!slug) return null;
+    if (ROOM_ICON_CACHE.has(slug)) return ROOM_ICON_CACHE.get(slug);
+
+    // Try inline SVG first
+    try {
+      const res = await fetch(`./assets/rooms/${slug}.svg`, {
+        cache: "force-cache",
+      });
+      if (res.ok) {
+        const svgText = await res.text();
+        const wrap = document.createElement("div");
+        wrap.innerHTML = svgText.trim();
+        const svg = wrap.querySelector("svg");
+        if (svg) {
+          svg.classList.add("icon-svg", `icon-${slug}`);
+          const record = { type: "svg", content: svg };
+          ROOM_ICON_CACHE.set(slug, record);
+          return record;
+        }
+      }
+    } catch (e) {
+      /* ignore */
+    }
+
+    // Fallback PNG
+    const img = document.createElement("img");
+    img.src = `./assets/rooms/${slug}.png`;
+    img.alt = "";
+    img.decoding = "async";
+    img.loading = "lazy";
+    img.className = `icon-img icon-${slug}`;
+    const record = { type: "img", content: img };
+    ROOM_ICON_CACHE.set(slug, record);
+    return record;
+  }
+
+  // Keep ONLY one child inside #room-title-icon, no matter what
+  function dedupeRoomIcon() {
+    const iconHost = document.getElementById("room-title-icon");
+    if (!iconHost) return;
+    while (iconHost.childNodes.length > 1) {
+      // keep the last added node (more recent)
+      iconHost.removeChild(iconHost.firstChild);
+    }
+  }
+
+  // Override any previous definitions
+  window.renderRoomTitle = async function renderRoomTitle(areaName) {
+    const iconHost = document.getElementById("room-title-icon");
+    if (!iconHost) return;
+
+    // Always clear first
+    iconHost.innerHTML = "";
+    if (!areaName) return;
+
+    const slug = slugifyRoom(areaName);
+    const rec = await loadRoomIcon(slug);
+    if (!rec || !rec.content) return;
+
+    const node = rec.content.cloneNode(true);
+    if (node.tagName && node.tagName.toLowerCase() === "svg") {
+      node.removeAttribute("width");
+      node.removeAttribute("height");
+      node.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    }
+
+    // If same icon already there, skip append (paranoia)
+    const already = iconHost.querySelector(`.icon-${slug}`);
+    if (!already) iconHost.appendChild(node);
+
+    // Ensure only ONE child remains
+    dedupeRoomIcon();
+  };
+
+  // Setup observer once DOM is ready
+  (function setupOnce() {
+    if (window.__ZING_ROOM_ICON_OBS__) return; // guard
+    const init = () => {
+      const iconHost = document.getElementById("room-title-icon");
+      if (!iconHost) return;
+      const obs = new MutationObserver(() => dedupeRoomIcon());
+      obs.observe(iconHost, { childList: true });
+      window.__ZING_ROOM_ICON_OBS__ = obs;
+
+      // Also hook close button to clear icon
+      const closeBtn = document.getElementById("close-overlay");
+      if (closeBtn && !closeBtn.__iconClearBound__) {
+        closeBtn.addEventListener("click", () => {
+          const host = document.getElementById("room-title-icon");
+          if (host) host.innerHTML = "";
+        });
+        closeBtn.__iconClearBound__ = true;
+      }
+    };
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init, { once: true });
+    } else {
+      init();
+    }
+  })();
+})();
+/* ================== /ZING PATCH END ================== */

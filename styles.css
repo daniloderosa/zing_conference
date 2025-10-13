@@ -637,6 +637,7 @@ body[data-theme="dark"] {
   padding: 8px 16px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 .room-back button {
   background: none;
@@ -645,6 +646,36 @@ body[data-theme="dark"] {
   font-weight: 600;
   cursor: pointer;
   color: var(--text);
+}
+.room-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto; /* spinge a destra */
+  max-width: 60ch; /* evita che prenda tutta la riga */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.room-title-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+/* gli <svg> iniettati ereditano dimensioni e colore del tema */
+.room-title-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* se vuoi che gli svg seguano il tema (solo se i tracciati usano fill/stroke currentColor): */
+  color: var(--text);
+  fill: currentColor;
 }
 
 /* === Overlay metrics (header numerico + barra) === */
@@ -771,7 +802,7 @@ body[data-theme="dark"] {
   right: 19%; /* stesso ancoraggio del blocco emozione */
   left: auto; /* importante: niente left */
   width: 20%; /* stessa larghezza del blocco emozione */
-  top: 45%; /* sotto .room-metrics-emotion (che hai a top:25%) */
+  top: 40%; /* sotto .room-metrics-emotion (che hai a top:25%) */
   z-index: 3;
   text-align: left;
 }
@@ -1096,4 +1127,116 @@ p,
   font-size: var(--fs-16pt);
   line-height: 1.35;
   color: var(--text, #373737);
+}
+.room-title {
+  min-width: 0; /* permette al flex item di restringersi senza overflow */
+}
+
+.room-title-icon {
+  height: clamp(96px, 14vh, 240px); /* <-- da 28px a grandezza responsive */
+  max-width: min(55vw, 900px);
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  overflow: visible; /* niente ritaglio */
+}
+.room-title-icon svg,
+.room-title-icon img {
+  height: 100%;
+  width: auto;
+  display: block;
+}
+#room-overlay .room-title {
+  position: absolute;
+  right: 16px;
+  bottom: 8px; /* distanza dal bordo inferiore dell’overlay */
+  margin: 0;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none; /* l’icona non intercetta click */
+}
+
+/* 3) La riga col bottone torna "solo bottone a sinistra" */
+.room-back {
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* niente space-between */
+  position: relative; /* (ok anche static) */
+}
+
+/* 4) (facoltativo) Dai respiro al contenuto centrale sopra il bottone */
+#room-overlay .room-bg {
+  padding-bottom: clamp(8px, 3vh, 48px);
+}
+
+/* 5) Niente testo titolo: già nell’SVG */
+.room-title-text {
+  display: none;
+}
+
+/* ======================= ZING OVERRIDE: Enlarged room-back row =======================
+   Goal: make the entire bottom row inside the overlay (button + icon) much bigger.
+   We keep #room-overlay as a flex column: .room-bg (flex:1) + .room-back (auto).
+   This override:
+   - introduces --overlayBarHeight
+   - enlarges .room-back
+   - makes the icon fill the bar height
+   - restores layout to "button on the left, icon on the right" without absolute positioning
+====================================================================================== */
+
+:root {
+  /* height of the overlay bottom row; tweak middle value (vh) and max */
+  --overlayBarHeight: 100px;
+}
+
+#room-overlay .room-bg {
+  /* reduce bottom padding now that the bar is taller */
+  padding-bottom: clamp(4px, 1.2vh, 12px);
+}
+
+#room-overlay .room-back {
+  min-height: var(--overlayBarHeight);
+  padding: clamp(8px, 1.6vh, 18px) 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* button ← | → icon */
+  gap: 16px;
+}
+
+#room-overlay .room-back button#close-overlay {
+  font-size: clamp(16px, 2.1vh, 24px);
+  line-height: 1.2;
+}
+
+/* Room title hosts ONLY the icon (title text is hidden elsewhere) */
+#room-overlay .room-title {
+  position: static; /* was absolute in previous patch */
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none; /* icon shouldn't catch clicks */
+  flex: 1 1 auto; /* consente di espandersi */
+  justify-content: flex-end; /* mantiene l’allineamento a destra */
+}
+
+/* Icon grows with the bar height */
+#room-overlay .room-title-icon {
+  height: 75px; /* leave some inner breathing */
+  max-width: min(65vw, 1100px);
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  overflow: visible;
+}
+
+#room-overlay .room-title-icon svg,
+#room-overlay .room-title-icon img {
+  height: 100%;
+  width: auto;
+  display: block;
 }
