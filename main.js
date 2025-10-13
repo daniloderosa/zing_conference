@@ -3308,3 +3308,148 @@ function reapplyLanternsSoon() {
   })();
 })();
 /* ================== /ZING PATCH END ================== */
+
+/* ================== ZING ADDON: Overlay Emotion Percentages ==================
+   Updates the SVG text nodes (e.g., .inner-timore-value) with the percentage
+   of each emotion for the CURRENT ROOM (area), with one decimal place.
+============================================================================= */
+(function () {
+  const EMO_SLUGS = {
+    Curiosità: "curiosita",
+    Entusiasmo: "entusiasmo",
+    Fiducia: "fiducia",
+    Indifferenza: "indifferenza",
+    Confusione: "confusione",
+    Timore: "timore",
+  };
+
+  function normAreaName(v) {
+    if (typeof __normArea === "function") return __normArea(v);
+    return (v ?? "").toString().trim();
+  }
+
+  function detectAreaFieldSafe(rows) {
+    if (typeof detectAreaField === "function") return detectAreaField(rows);
+    if (!rows || !rows.length) return null;
+    const keys = Object.keys(rows[0]);
+    const candidates = [
+      "area",
+      "Area",
+      "room",
+      "Room",
+      "stanza",
+      "Stanza",
+      "zona",
+      "Zona",
+      "area_name",
+      "AreaName",
+      "Postazione",
+      "postazione",
+    ];
+    return candidates.find((k) => keys.includes(k)) || null;
+  }
+
+  function detectEmotionFieldSafe(rows) {
+    if (typeof detectEmotionField === "function")
+      return detectEmotionField(rows);
+    if (!rows || !rows.length) return null;
+    const keys = Object.keys(rows[0]);
+    const candidates = ["emotion", "Emotion", "emozione", "Emozione"];
+    return candidates.find((k) => keys.includes(k)) || null;
+  }
+
+  function computeEmotionPercentagesForArea(areaName) {
+    const rows = window.ZING && window.ZING.rows ? window.ZING.rows : [];
+    if (!areaName || !rows.length) {
+      return Object.fromEntries(Object.keys(EMO_SLUGS).map((k) => [k, 0]));
+    }
+    const areaField =
+      (window.ZING && window.ZING.areaField) || detectAreaFieldSafe(rows);
+    const emoField =
+      (window.ZING && window.ZING.emoField) || detectEmotionFieldSafe(rows);
+    if (!areaField || !emoField) {
+      return Object.fromEntries(Object.keys(EMO_SLUGS).map((k) => [k, 0]));
+    }
+
+    const filtered = rows.filter(
+      (r) => normAreaName(r[areaField]) === normAreaName(areaName)
+    );
+    const total = filtered.length;
+    const counts = {};
+    for (const label in EMO_SLUGS) counts[label] = 0;
+
+    for (const r of filtered) {
+      const lab = (r[emoField] ?? "").toString().trim();
+      if (lab in counts) counts[lab] += 1;
+    }
+
+    const perc = {};
+    for (const lab in counts) {
+      const p = total > 0 ? (counts[lab] * 100) / total : 0;
+      perc[lab] = p;
+    }
+    return perc;
+  }
+
+  function formatOneDecimal(n) {
+    return (Math.round(n * 10) / 10).toFixed(0) + "%";
+  }
+
+  function updateOverlayEmotionPercentages(areaName) {
+    const perc = computeEmotionPercentagesForArea(areaName);
+    for (const [label, slug] of Object.entries(EMO_SLUGS)) {
+      const nodes = document.querySelectorAll(`.inner-${slug}-value`);
+      if (!nodes || !nodes.length) continue;
+      const txt = formatOneDecimal(perc[label] || 0);
+      nodes.forEach((n) => {
+        try {
+          const hasTspan = n.querySelector && n.querySelector("tspan");
+          if (hasTspan) {
+            // Prefer a dedicated value tspan if exists, else the last child tspan
+            const tspan =
+              n.querySelector('tspan[data-role="value"]') ||
+              n.querySelector("tspan:last-of-type");
+            if (tspan) {
+              tspan.textContent = txt;
+            } else {
+              // fallback: keep structure, append a text node
+              // but do not remove existing children to preserve positioning
+              const last = n.lastChild;
+              if (last && last.nodeType === Node.TEXT_NODE) {
+                last.nodeValue = txt;
+              } else {
+                n.appendChild(document.createTextNode(txt));
+              }
+            }
+          } else {
+            // No child tspans: safe to set textContent
+            n.textContent = txt;
+          }
+        } catch (e) {
+          n.textContent = txt;
+        }
+      });
+    }
+  }
+
+  window.updateOverlayEmotionPercentages = updateOverlayEmotionPercentages;
+
+  (function hookRenderRoomTitle() {
+    const prev = window.renderRoomTitle;
+    window.renderRoomTitle = async function (areaName) {
+      try {
+        if (prev) {
+          const maybePromise = prev.call(this, areaName);
+          if (maybePromise && typeof maybePromise.then === "function") {
+            await maybePromise;
+          }
+        }
+      } finally {
+        try {
+          updateOverlayEmotionPercentages(areaName);
+        } catch (_) {}
+      }
+    };
+  })();
+})();
+/* ================== /ZING ADDON END ================== */
