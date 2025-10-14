@@ -1365,3 +1365,8 @@ body.overlay-open #room-blurb {
   opacity: 0.9;
   margin: 0;
 }
+.overlay-lanterne {
+  transform: translate(138px, 85px) rotate(0deg);
+  transform-box: fill-box;
+  transform-origin: center;
+}

@@ -91,45 +91,6 @@ const ROOM_AREA_ORDER = [
   "Z Factor",
 ];
 
-const ROOM_COPY = {
-  "Agenti AI Back Office": {
-    title: "Agenti AI Back Office",
-    desc: "Assistenti che validano etichette food riducendo errori, o che interpretano documenti complessi, eliminando il data entry. L’AI al servizio di manutentori e sales manager con previsioni e opportunità di vendita, per aumentarne l’efficienza complessiva.",
-  },
-  "Synergy Map": {
-    title: "Synergy Map",
-    desc: "Ogni partecipante diventa un nodo su una mappa dinamica. Indicando la propria expertise, si attiva la rete condivisa che mostra connessioni e affinità in tempo reale. La mappa rivela cluster e sinergie, stimolando dialogo e nuove collaborazioni.",
-  },
-  "The Balance Tower": {
-    title: "The Balance Tower",
-    desc: "Unisce AI e competenze tecniche in un modello ibrido per sistemi resilienti e adattivi. Mostra i vantaggi dell’AI nello sviluppo e nei paradigmi Alops per l’automazione avanzata. Un’esperienza tra tecnologia e gamification, con Z!ng Coin in palio.",
-  },
-  "Agenti AI Su Misura": {
-    title: "Agenti AI su misura",
-    desc: "Dai voicebot che aggiornano il CRM a Hypersell, copilota della trattativa, fino a una raccolta di agenti AI as-a-service: soluzioni pronte che automatizzano processi, riducono sprechi di tempo e potenziano le vendite, con la possibilità di creare agenti su misura.",
-  },
-  Deepfake: {
-    title: "Deepfake",
-    desc: "L’imitazione di volti, voci e movimenti con realismo estremo grazie all’AI, mette alla prova fiducia, sicurezza e gestione dei dati. Nella media room potrai scoprire come l’intelligenza artificiale manipola la realtà. Crea il tuo deepfake e vivi un’esperienza immersiva tra percezione e consapevolezza.",
-  },
-  "Presenza Digitale": {
-    title: " Presenza Digitale",
-    desc: " Uno spazio immersivo dove la tecnologia rafforza la relazione. Sistemi di videoconferenza evoluti e ambienti curati rendono ogni meeting a distanza autentico. Qualità audio-visiva e cura dei dettagli fanno dimenticare lo schermo: la distanza non è più un limite.",
-  },
-  "Retail Multimedia": {
-    title: " Retail Multimedia",
-    desc: " Il punto vendita diventa luogo di relazione e meraviglia. Tecnologie visive, interattive e sensoriali trasformano vetrine e showroom in palcoscenici esperienziali con display dinamici e contenuti immersivi. Ogni dettaglio valorizza il prodotto, emoziona e lascia un segno",
-  },
-  "Ok... La promo è giusta": {
-    title: " Ok... La Promo è Giusta",
-    desc: " La leva promozionale nel retail attrae clienti e aumenta le vendite. Progettare campagne richiede equilibrio tra le esigenze dei consumatori e gli obiettivi del brand: l’AI semplifica questo processo. Crea la tua campagna e scopri come l'unione tra intelligenza umana e AI innova il modo di fare retail.",
-  },
-  "Z Factor": {
-    title: " Z Factor",
-    desc: " Un quiz interattivo che mette alla prova il tuo grado di integrazione tra progettazione, logistica, qualità e sostenibilità per un ecosistema digitale e data-driven. Trasforma l’innovazione in valore reale e guadagna Z!ng Coin extra.",
-  },
-};
-
 // --- Room title/icon loader (SVG preferred, PNG fallback) ---
 const ROOM_ICON_CACHE = new Map(); // slug -> {type:'svg'|'img', content:Node}
 function slugifyRoom(name) {
@@ -212,23 +173,6 @@ async function renderRoomTitle(areaName) {
     svgEl.removeAttribute("height");
     svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
   }
-}
-
-function updateLeftBlurbForArea(areaName) {
-  const titleEl = document.getElementById("room-blurb-title");
-  const descEl = document.getElementById("room-blurb-desc");
-  if (!titleEl || !descEl) return;
-
-  if (!areaName) {
-    // reset: quando chiudi l’overlay torni all’overview
-    titleEl.textContent = "";
-    descEl.textContent = "";
-    return;
-  }
-
-  const copy = ROOM_COPY[areaName] || { title: areaName, desc: "" };
-  titleEl.textContent = copy.title || areaName;
-  descEl.textContent = copy.desc || "";
 }
 
 const EMO_COLORS = new Map([
@@ -1477,7 +1421,6 @@ d3.selectAll(".emotions li").on("click", function () {
               try {
                 updateOverlayMetrics(areaName);
                 renderRoomTitle(areaName);
-                updateLeftBlurbForArea && updateLeftBlurbForArea(areaName);
                 (function () {
                   window.__APPLY_OPACITY_TOKEN =
                     window.__APPLY_OPACITY_TOKEN || 0;
@@ -1556,7 +1499,6 @@ d3.selectAll(".emotions li").on("click", function () {
             if (areaName) {
               updateOverlayMetrics(areaName);
               renderRoomTitle(areaName);
-              updateLeftBlurbForArea && updateLeftBlurbForArea(areaName);
               (function () {
                 window.__APPLY_OPACITY_TOKEN =
                   window.__APPLY_OPACITY_TOKEN || 0;
@@ -1935,9 +1877,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (window.ZING) {
         window.ZING.currentArea = null;
       }
-      try {
-        updateLeftBlurbForArea && updateLeftBlurbForArea("");
-      } catch (e) {}
       clearRightColumnFilter();
       if (typeof ensureTimelineColorsAndFilter === "function")
         ensureTimelineColorsAndFilter();
@@ -3539,4 +3478,180 @@ function reapplyLanternsSoon() {
     };
   })();
 })();
-/* ================== /ZING ADDON END ================== */
+/* ================== /ZING ADDON END ================== */ /* ================== LANTERNE OVERLAY — SOLO ENTUSIASMO ================== */
+(function () {
+  // --- helper per normalizzazione e mappatura emozioni ---
+  const EMO_ALIAS = {
+    curiosita: "Curiosità",
+    curiosità: "Curiosità",
+    curiosity: "Curiosità",
+    entusiasmo: "Entusiasmo",
+    enthusiasm: "Entusiasmo",
+    fiducia: "Fiducia",
+    trust: "Fiducia",
+    indifferenza: "Indifferenza",
+    indifference: "Indifferenza",
+    confusione: "Confusione",
+    confusion: "Confusione",
+    timore: "Timore",
+    paura: "Timore",
+    fear: "Timore",
+  };
+  const NORM = (s) =>
+    (s ?? "")
+      .toString()
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .replace(/\s+/g, " ");
+
+  // --- trova il gruppo host dove disegnare le lanterne ---
+  function getOverlayLanternGroup() {
+    return document.querySelector("#room-overlay g.overlay-lanterne");
+  }
+
+  // --- carica il file SVG corretto (10–100) ---
+  async function loadLanternInner(decile) {
+    const url = `./assets/lanterns/entusiasmo/${decile}.svg`;
+    const res = await fetch(url, { cache: "force-cache" });
+    if (!res.ok) return null;
+    const txt = await res.text();
+    const m = txt.match(/<svg[^>]*>([\s\S]*?)<\/svg>/i);
+    return (m ? m[1] : txt).trim();
+  }
+
+  // --- funzioni di supporto per calcolo % entusiasmo robusto ---
+  function pickAreaField(rows, areaName) {
+    const keys = rows[0] ? Object.keys(rows[0]) : [];
+    const target = NORM(areaName);
+    let best = null,
+      bestHits = -1;
+    for (const k of keys) {
+      let hits = 0;
+      for (let i = 0; i < rows.length && i < 1000; i++) {
+        if (NORM(rows[i][k]) === target) hits++;
+      }
+      if (hits > bestHits) {
+        best = k;
+        bestHits = hits;
+      }
+    }
+    return best;
+  }
+
+  function pickEmotionField(rows) {
+    const keys = rows[0] ? Object.keys(rows[0]) : [];
+    let best = null,
+      bestHits = -1;
+    for (const k of keys) {
+      let hits = 0;
+      for (let i = 0; i < rows.length && i < 1000; i++) {
+        if (EMO_ALIAS[NORM(rows[i][k])]) hits++;
+      }
+      if (hits > bestHits) {
+        best = k;
+        bestHits = hits;
+      }
+    }
+    return best;
+  }
+
+  function computeEntuPercentFromRows(areaName) {
+    const rows = window.ZING && window.ZING.rows ? window.ZING.rows : [];
+    if (!rows.length || !areaName) return 0;
+    const areaField = pickAreaField(rows, areaName);
+    const emoField = pickEmotionField(rows);
+    if (!areaField || !emoField) return 0;
+
+    const target = NORM(areaName);
+    let total = 0,
+      entu = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (NORM(r[areaField]) !== target) continue;
+      total++;
+      const mapped = EMO_ALIAS[NORM(r[emoField])];
+      if (mapped === "Entusiasmo") entu++;
+    }
+    if (!total) return 0;
+    return (entu * 100) / total; // % 0..100
+  }
+
+  // --- converte % o calcola internamente dai dati ---
+  function toDecile(input) {
+    let p; // percentuale 0..100
+    if (typeof input === "number") {
+      p = input > 0 && input <= 1 ? input * 100 : input;
+    } else if (typeof input === "string" && input) {
+      // prova prima la funzione esistente, altrimenti calcolo diretto
+      let raw = 0;
+      if (typeof computeEmotionPercentagesForArea === "function") {
+        try {
+          const map = computeEmotionPercentagesForArea(input) || {};
+          raw = +map.Entusiasmo || 0;
+        } catch {}
+      }
+      p = raw
+        ? raw > 0 && raw <= 1
+          ? raw * 100
+          : raw
+        : computeEntuPercentFromRows(input);
+    } else {
+      p = 0;
+    }
+
+    let d = Math.round(p / 10) * 10;
+    if (d < 10) d = 10;
+    if (d > 100) d = 100;
+    return d;
+  }
+
+  // --- disegna la lanterna per ENTUSIASMO nella stanza selezionata ---
+  async function drawEntusiasmoLantern(areaName, _try = 0) {
+    const host = getOverlayLanternGroup();
+    if (!host) {
+      if (_try < 3)
+        requestAnimationFrame(() => drawEntusiasmoLantern(areaName, _try + 1));
+      return;
+    }
+
+    // pulisci eventuale lanterna precedente
+    const old = host.querySelector("g.lanterna-entu");
+    if (old) old.remove();
+    if (!areaName) return;
+
+    const dec = toDecile(areaName);
+    const inner = await loadLanternInner(dec);
+    if (!inner) return;
+
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("class", "lanterna-entu");
+    g.innerHTML = inner; // nessuna modifica ai path/g
+    host.appendChild(g);
+  }
+
+  // --- hook: dopo il titolo stanza, disegna la lanterna entusiasmo ---
+  (function hookAfterTitle() {
+    const prev = window.renderRoomTitle;
+    window.renderRoomTitle = async function (areaName) {
+      const ret = prev ? prev.call(this, areaName) : null;
+      if (ret && typeof ret.then === "function") await ret;
+      drawEntusiasmoLantern(areaName);
+      return ret;
+    };
+  })();
+
+  // --- rimuovi lanterna alla chiusura overlay ---
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("close-overlay");
+    if (btn && !btn.__lanternClean__) {
+      btn.addEventListener("click", () => {
+        const host = getOverlayLanternGroup();
+        const old = host && host.querySelector("g.lanterna-entu");
+        if (old) old.remove();
+      });
+      btn.__lanternClean__ = true;
+    }
+  });
+})();
