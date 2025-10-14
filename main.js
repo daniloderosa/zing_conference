@@ -91,6 +91,45 @@ const ROOM_AREA_ORDER = [
   "Z Factor",
 ];
 
+const ROOM_COPY = {
+  "Agenti AI Back Office": {
+    title: "Agenti AI Back Office",
+    desc: "Assistenti che validano etichette food riducendo errori, o che interpretano documenti complessi, eliminando il data entry. L’AI al servizio di manutentori e sales manager con previsioni e opportunità di vendita, per aumentarne l’efficienza complessiva.",
+  },
+  "Synergy Map": {
+    title: "Synergy Map",
+    desc: "Ogni partecipante diventa un nodo su una mappa dinamica. Indicando la propria expertise, si attiva la rete condivisa che mostra connessioni e affinità in tempo reale. La mappa rivela cluster e sinergie, stimolando dialogo e nuove collaborazioni.",
+  },
+  "The Balance Tower": {
+    title: "The Balance Tower",
+    desc: "Unisce AI e competenze tecniche in un modello ibrido per sistemi resilienti e adattivi. Mostra i vantaggi dell’AI nello sviluppo e nei paradigmi Alops per l’automazione avanzata. Un’esperienza tra tecnologia e gamification, con Z!ng Coin in palio.",
+  },
+  "Agenti AI Su Misura": {
+    title: "Agenti AI su misura",
+    desc: "Dai voicebot che aggiornano il CRM a Hypersell, copilota della trattativa, fino a una raccolta di agenti AI as-a-service: soluzioni pronte che automatizzano processi, riducono sprechi di tempo e potenziano le vendite, con la possibilità di creare agenti su misura.",
+  },
+  Deepfake: {
+    title: "Deepfake",
+    desc: "L’imitazione di volti, voci e movimenti con realismo estremo grazie all’AI, mette alla prova fiducia, sicurezza e gestione dei dati. Nella media room potrai scoprire come l’intelligenza artificiale manipola la realtà. Crea il tuo deepfake e vivi un’esperienza immersiva tra percezione e consapevolezza.",
+  },
+  "Presenza Digitale": {
+    title: " Presenza Digitale",
+    desc: " Uno spazio immersivo dove la tecnologia rafforza la relazione. Sistemi di videoconferenza evoluti e ambienti curati rendono ogni meeting a distanza autentico. Qualità audio-visiva e cura dei dettagli fanno dimenticare lo schermo: la distanza non è più un limite.",
+  },
+  "Retail Multimedia": {
+    title: " Retail Multimedia",
+    desc: " Il punto vendita diventa luogo di relazione e meraviglia. Tecnologie visive, interattive e sensoriali trasformano vetrine e showroom in palcoscenici esperienziali con display dinamici e contenuti immersivi. Ogni dettaglio valorizza il prodotto, emoziona e lascia un segno",
+  },
+  "Ok... La promo è giusta": {
+    title: " Ok... La Promo è Giusta",
+    desc: " La leva promozionale nel retail attrae clienti e aumenta le vendite. Progettare campagne richiede equilibrio tra le esigenze dei consumatori e gli obiettivi del brand: l’AI semplifica questo processo. Crea la tua campagna e scopri come l'unione tra intelligenza umana e AI innova il modo di fare retail.",
+  },
+  "Z Factor": {
+    title: " Z Factor",
+    desc: " Un quiz interattivo che mette alla prova il tuo grado di integrazione tra progettazione, logistica, qualità e sostenibilità per un ecosistema digitale e data-driven. Trasforma l’innovazione in valore reale e guadagna Z!ng Coin extra.",
+  },
+};
+
 // --- Room title/icon loader (SVG preferred, PNG fallback) ---
 const ROOM_ICON_CACHE = new Map(); // slug -> {type:'svg'|'img', content:Node}
 function slugifyRoom(name) {
@@ -173,6 +212,23 @@ async function renderRoomTitle(areaName) {
     svgEl.removeAttribute("height");
     svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
   }
+}
+
+function updateLeftBlurbForArea(areaName) {
+  const titleEl = document.getElementById("room-blurb-title");
+  const descEl = document.getElementById("room-blurb-desc");
+  if (!titleEl || !descEl) return;
+
+  if (!areaName) {
+    // reset: quando chiudi l’overlay torni all’overview
+    titleEl.textContent = "";
+    descEl.textContent = "";
+    return;
+  }
+
+  const copy = ROOM_COPY[areaName] || { title: areaName, desc: "" };
+  titleEl.textContent = copy.title || areaName;
+  descEl.textContent = copy.desc || "";
 }
 
 const EMO_COLORS = new Map([
@@ -1421,6 +1477,7 @@ d3.selectAll(".emotions li").on("click", function () {
               try {
                 updateOverlayMetrics(areaName);
                 renderRoomTitle(areaName);
+                updateLeftBlurbForArea && updateLeftBlurbForArea(areaName);
                 (function () {
                   window.__APPLY_OPACITY_TOKEN =
                     window.__APPLY_OPACITY_TOKEN || 0;
@@ -1499,6 +1556,7 @@ d3.selectAll(".emotions li").on("click", function () {
             if (areaName) {
               updateOverlayMetrics(areaName);
               renderRoomTitle(areaName);
+              updateLeftBlurbForArea && updateLeftBlurbForArea(areaName);
               (function () {
                 window.__APPLY_OPACITY_TOKEN =
                   window.__APPLY_OPACITY_TOKEN || 0;
@@ -1777,6 +1835,11 @@ d3.selectAll(".emotions li").on("click", function () {
           b.removeAttribute("data-theme");
         }
         window.updateSvgColors && window.updateSvgColors(!!active);
+
+        // NEW: se l’overlay è aperto, ricarica l’icona titolo con il suffisso giusto
+        if (window.ZING && window.ZING.currentArea) {
+          renderRoomTitle(window.ZING.currentArea);
+        }
       } catch (e) {}
     }
 
@@ -1872,6 +1935,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (window.ZING) {
         window.ZING.currentArea = null;
       }
+      try {
+        updateLeftBlurbForArea && updateLeftBlurbForArea("");
+      } catch (e) {}
       clearRightColumnFilter();
       if (typeof ensureTimelineColorsAndFilter === "function")
         ensureTimelineColorsAndFilter();
@@ -3215,30 +3281,43 @@ function reapplyLanternsSoon() {
 
   async function loadRoomIcon(slug) {
     if (!slug) return null;
-    if (ROOM_ICON_CACHE.has(slug)) return ROOM_ICON_CACHE.get(slug);
 
-    // Try inline SVG first
-    try {
-      const res = await fetch(`./assets/rooms/${slug}.svg`, {
-        cache: "force-cache",
-      });
-      if (res.ok) {
-        const svgText = await res.text();
-        const wrap = document.createElement("div");
-        wrap.innerHTML = svgText.trim();
-        const svg = wrap.querySelector("svg");
-        if (svg) {
-          svg.classList.add("icon-svg", `icon-${slug}`);
-          const record = { type: "svg", content: svg };
-          ROOM_ICON_CACHE.set(slug, record);
-          return record;
+    // includi il tema nella cache per evitare riuso cross-theme
+    const variant =
+      (typeof getTheme === "function" && getTheme()) ||
+      (document.body.getAttribute("data-theme") === "dark" ? "dark" : "light");
+    const cacheKey = `${slug}|${variant}`;
+    if (ROOM_ICON_CACHE.has(cacheKey)) return ROOM_ICON_CACHE.get(cacheKey);
+
+    // 1) prova il suffisso di tema
+    const trySvgs = [
+      `./assets/rooms/${slug}_${variant}.svg`,
+      `./assets/rooms/${slug}.svg`,
+    ];
+
+    for (const url of trySvgs) {
+      try {
+        const res = await fetch(url, { cache: "force-cache" });
+        if (res.ok) {
+          const svgText = await res.text();
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = svgText.trim();
+          const svg = wrapper.querySelector("svg");
+          if (svg) {
+            svg.classList.add("icon-svg", `icon-${slug}`);
+            // normalizza per evitare distorsioni
+            svg.removeAttribute("width");
+            svg.removeAttribute("height");
+            svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+            const record = { type: "svg", content: svg };
+            ROOM_ICON_CACHE.set(cacheKey, record);
+            return record;
+          }
         }
-      }
-    } catch (e) {
-      /* ignore */
+      } catch (e) {}
     }
 
-    // Fallback PNG
+    // 2) fallback PNG (lascia pure senza suffisso se non li hai duplicati)
     const img = document.createElement("img");
     img.src = `./assets/rooms/${slug}.png`;
     img.alt = "";
@@ -3246,7 +3325,7 @@ function reapplyLanternsSoon() {
     img.loading = "lazy";
     img.className = `icon-img icon-${slug}`;
     const record = { type: "img", content: img };
-    ROOM_ICON_CACHE.set(slug, record);
+    ROOM_ICON_CACHE.set(cacheKey, record);
     return record;
   }
 
