@@ -1412,6 +1412,7 @@ d3.selectAll(".emotions li").on("click", function () {
             if (cm) cm.style.display = "none";
             const overlay = document.getElementById("room-overlay");
             if (overlay) overlay.classList.add("active");
+            document.body.classList.add("overlay-open");
             if (window.updateSvgColors)
               window.updateSvgColors(
                 document.body.getAttribute("data-theme") === "dark"
@@ -1489,6 +1490,7 @@ d3.selectAll(".emotions li").on("click", function () {
             if (cm) cm.style.display = "none";
             const overlay = document.getElementById("room-overlay");
             if (overlay) overlay.classList.add("active");
+            document.body.classList.add("overlay-open");
             if (window.updateSvgColors)
               window.updateSvgColors(
                 document.body.getAttribute("data-theme") === "dark"
@@ -1866,6 +1868,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (overlay) overlay.classList.remove("active");
       const cm = document.querySelector(".center-map");
       if (cm) cm.style.display = "flex";
+      document.body.classList.remove("overlay-open");
       if (window.ZING) {
         window.ZING.currentArea = null;
       }
@@ -2265,11 +2268,16 @@ function renderHourlyChart(area) {
   // Y a bande
   const y = d3.scaleBand().domain(hours).range([0, innerH]).padding(0.25);
 
+  // --- Affluenza oraria: controlli spessore e distacco barre ---
+  const BAR_X_INSET = 6; // px di distacco dall’asse Y
+  const BAR_Y_THICKNESS = 0.6; // frazione dell’altezza della band (0..1)
+
   // Assi con soli tick
   const gx = g
     .append("g")
     .attr("class", "axis x")
-    .call(d3.axisTop(x).ticks(5).tickSizeInner(6).tickSizeOuter(0));
+    .call(d3.axisTop(x).ticks(5).tickSizeInner(6).tickSizeOuter(0))
+    .attr("transform", "translate(5,0)");
   gx.select(".domain").remove();
 
   const gy = g
@@ -2294,9 +2302,9 @@ function renderHourlyChart(area) {
       // base "vuota" (totale) → bianco
       bars
         .append("rect")
-        .attr("x", x(0))
+        .attr("x", x(0) + BAR_X_INSET)
         .attr("y", yPos)
-        .attr("width", x(total))
+        .attr("width", Math.max(0, x(total) - x(0) - BAR_X_INSET))
         .attr("height", barH)
         .attr("fill", "#FFFFFF");
 
@@ -2304,9 +2312,9 @@ function renderHourlyChart(area) {
       if (emo > 0) {
         bars
           .append("rect")
-          .attr("x", x(0))
+          .attr("x", x(0) + BAR_X_INSET)
           .attr("y", yPos)
-          .attr("width", x(emo))
+          .attr("width", Math.max(0, x(emo) - x(0) - BAR_X_INSET))
           .attr("height", barH)
           .style("fill", selectedEmotionColor);
       }
@@ -2315,9 +2323,9 @@ function renderHourlyChart(area) {
       bars
         .append("rect")
         .attr("class", "bar")
-        .attr("x", x(0))
+        .attr("x", x(0) + BAR_X_INSET)
         .attr("y", yPos)
-        .attr("width", x(total))
+        .attr("width", Math.max(0, x(total) - x(0) - BAR_X_INSET))
         .attr("height", barH);
     }
   });

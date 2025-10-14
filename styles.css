@@ -1240,3 +1240,78 @@ p,
   width: auto;
   display: block;
 }
+/* =========================
+   HOW-TO (colonna sinistra):
+   - con overlay aperto:
+     * nascondi la 3ª voce
+     * sostituisci icone + testi delle prime due
+   ========================= */
+
+/* 0) Testi alternativi*/
+body.overlay-open {
+  --howto1-title: "Le emozioni nella stanza";
+  --howto1-desc: "sono rappresentate dalle lanterne colorate";
+  --howto2-title: "Le emozioni totali";
+  --howto2-desc: "sono rappresentate da un bordo";
+}
+
+/* 1) Nascondi la 3ª voce quando l’overlay è aperto */
+body.overlay-open .col-left .howto li:nth-child(3) {
+  display: none;
+}
+
+body.overlay-open .col-left .howto li:nth-child(1) .icon,
+body.overlay-open .col-left .howto li:nth-child(2) .icon {
+  -webkit-mask: none !important;
+  mask: none !important;
+  background-color: transparent !important; /* non coloriamo il box */
+  background-image: url("./assets/icons/Emozioni\ della\ stanza.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+/* seconda icona (sovrascrive solo l’immagine) */
+body.overlay-open .col-left .howto li:nth-child(2) .icon {
+  background-image: url("./assets/icons/Emozioni\ totali.svg");
+}
+
+/* 3) Sostituisci il TESTO delle prime due voci via pseudo-elementi, */
+body.overlay-open .col-left .howto li:nth-child(1) .copy .t,
+body.overlay-open .col-left .howto li:nth-child(1) .copy .d,
+body.overlay-open .col-left .howto li:nth-child(2) .copy .t,
+body.overlay-open .col-left .howto li:nth-child(2) .copy .d {
+  display: none;
+}
+
+body.overlay-open .col-left .howto li:nth-child(1) .copy::before {
+  content: var(--howto1-title);
+  display: block;
+  font-weight: 700;
+  line-height: 1.25;
+  font-size: var(--fs-18pt);
+}
+body.overlay-open .col-left .howto li:nth-child(1) .copy::after {
+  content: var(--howto1-desc);
+  display: block;
+  opacity: 0.85;
+  line-height: 1.25;
+}
+
+body.overlay-open .col-left .howto li:nth-child(2) .copy::before {
+  content: var(--howto2-title);
+  display: block;
+  font-weight: 700;
+  line-height: 1.25;
+  font-size: var(--fs-18pt);
+}
+body.overlay-open .col-left .howto li:nth-child(2) .copy::after {
+  content: var(--howto2-desc);
+  display: block;
+  opacity: 0.85;
+  line-height: 1.25;
+}
+/* ripristina la separatrice prima del 4° li quando nascondiamo il 3° */
+body.overlay-open .col-left .howto li:nth-child(4) {
+  border-top: 1px solid #b0b0b0;
+}
