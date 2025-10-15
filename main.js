@@ -70,8 +70,8 @@ Dalla prossima modifica del file main.js puoi rimuovere il commento iniziale.
 
 const margin = { top: 20, right: 20, bottom: 20, left: 50 };
 
-//const SHEET_ID = "1hoAy9ybrFpp_CDOyyLALOmF1S4CwTN20c_WOyeVeAQ8";
-const SHEET_ID = "1pDjRrWJLUwri0MbmjztUIIkhnmo6DDm0mpv5sDhFOWc";
+const SHEET_ID = "1pDjRrWJLUwri0MbmjztUIIkhnmo6DDm0mpv5sDhFOWc"; //test
+//const SHEET_ID = "13kEh1bfP48nun0PcHiNmalUavq--vhwGXw_NJO552KI"; //prod
 const SHEET_NAME = "FEED";
 function csvUrl() {
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(
@@ -90,7 +90,44 @@ const ROOM_AREA_ORDER = [
   "Ok... La promo è giusta",
   "Z Factor",
 ];
-
+const ROOM_COPY = {
+  "Agenti AI Back Office": {
+    title: "Agenti AI Back Office",
+    desc: "Assistenti che validano etichette food riducendo errori, o che interpretano documenti complessi, eliminando il data entry. L’AI al servizio di manutentori e sales manager con previsioni e opportunità di vendita, per aumentarne l’efficienza complessiva.",
+  },
+  "Synergy Map": {
+    title: "Synergy Map",
+    desc: "Ogni partecipante diventa un nodo su una mappa dinamica. Indicando la propria expertise, si attiva la rete condivisa che mostra connessioni e affinità in tempo reale. La mappa rivela cluster e sinergie, stimolando dialogo e nuove collaborazioni.",
+  },
+  "The Balance Tower": {
+    title: "The Balance Tower",
+    desc: "Unisce AI e competenze tecniche in un modello ibrido per sistemi resilienti e adattivi. Mostra i vantaggi dell’AI nello sviluppo e nei paradigmi Alops per l’automazione avanzata. Un’esperienza tra tecnologia e gamification, con Z!ng Coin in palio.",
+  },
+  "Agenti AI Su Misura": {
+    title: "Agenti AI su misura",
+    desc: "Dai voicebot che aggiornano il CRM a Hypersell, copilota della trattativa, fino a una raccolta di agenti AI as-a-service: soluzioni pronte che automatizzano processi, riducono sprechi di tempo e potenziano le vendite, con la possibilità di creare agenti su misura.",
+  },
+  Deepfake: {
+    title: "Deepfake",
+    desc: "L’imitazione di volti, voci e movimenti con realismo estremo grazie all’AI, mette alla prova fiducia, sicurezza e gestione dei dati. Nella media room potrai scoprire come l’intelligenza artificiale manipola la realtà. Crea il tuo deepfake e vivi un’esperienza immersiva tra percezione e consapevolezza.",
+  },
+  "Presenza Digitale": {
+    title: " Presenza Digitale",
+    desc: " Uno spazio immersivo dove la tecnologia rafforza la relazione. Sistemi di videoconferenza evoluti e ambienti curati rendono ogni meeting a distanza autentico. Qualità audio-visiva e cura dei dettagli fanno dimenticare lo schermo: la distanza non è più un limite.",
+  },
+  "Retail Multimedia": {
+    title: " Retail Multimedia",
+    desc: " Il punto vendita diventa luogo di relazione e meraviglia. Tecnologie visive, interattive e sensoriali trasformano vetrine e showroom in palcoscenici esperienziali con display dinamici e contenuti immersivi. Ogni dettaglio valorizza il prodotto, emoziona e lascia un segno",
+  },
+  "Ok... La promo è giusta": {
+    title: " Ok... La Promo è Giusta",
+    desc: " La leva promozionale nel retail attrae clienti e aumenta le vendite. Progettare campagne richiede equilibrio tra le esigenze dei consumatori e gli obiettivi del brand: l’AI semplifica questo processo. Crea la tua campagna e scopri come l'unione tra intelligenza umana e AI innova il modo di fare retail.",
+  },
+  "Z Factor": {
+    title: " Z Factor",
+    desc: " Un quiz interattivo che mette alla prova il tuo grado di integrazione tra progettazione, logistica, qualità e sostenibilità per un ecosistema digitale e data-driven. Trasforma l’innovazione in valore reale e guadagna Z!ng Coin extra.",
+  },
+};
 // --- Room title/icon loader (SVG preferred, PNG fallback) ---
 const ROOM_ICON_CACHE = new Map(); // slug -> {type:'svg'|'img', content:Node}
 function slugifyRoom(name) {
@@ -174,7 +211,22 @@ async function renderRoomTitle(areaName) {
     svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
   }
 }
+function updateLeftBlurbForArea(areaName) {
+  const titleEl = document.getElementById("room-blurb-title");
+  const descEl = document.getElementById("room-blurb-desc");
+  if (!titleEl || !descEl) return;
 
+  if (!areaName) {
+    // reset: quando chiudi l’overlay torni all’overview
+    titleEl.textContent = "";
+    descEl.textContent = "";
+    return;
+  }
+
+  const copy = ROOM_COPY[areaName] || { title: areaName, desc: "" };
+  titleEl.textContent = copy.title || areaName;
+  descEl.textContent = copy.desc || "";
+}
 const EMO_COLORS = new Map([
   ["Curiosità", "#2ECC71"],
   ["Entusiasmo", "#F1C40F"],
@@ -1421,6 +1473,7 @@ d3.selectAll(".emotions li").on("click", function () {
               try {
                 updateOverlayMetrics(areaName);
                 renderRoomTitle(areaName);
+                updateLeftBlurbForArea && updateLeftBlurbForArea(areaName);
                 (function () {
                   window.__APPLY_OPACITY_TOKEN =
                     window.__APPLY_OPACITY_TOKEN || 0;
@@ -1499,6 +1552,7 @@ d3.selectAll(".emotions li").on("click", function () {
             if (areaName) {
               updateOverlayMetrics(areaName);
               renderRoomTitle(areaName);
+              updateLeftBlurbForArea && updateLeftBlurbForArea(areaName);
               (function () {
                 window.__APPLY_OPACITY_TOKEN =
                   window.__APPLY_OPACITY_TOKEN || 0;
@@ -1877,6 +1931,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (window.ZING) {
         window.ZING.currentArea = null;
       }
+      try {
+        updateLeftBlurbForArea && updateLeftBlurbForArea("");
+      } catch (e) {}
       clearRightColumnFilter();
       if (typeof ensureTimelineColorsAndFilter === "function")
         ensureTimelineColorsAndFilter();
@@ -3121,15 +3178,36 @@ document.addEventListener("DOMContentLoaded", function () {
         return "#C7C7C7";
       }
 
-      // Apply to .room-1 ... .room-9
+      // Apply colors reading the area name from each node, fallback to ROOM_AREA_ORDER[i]
       for (let i = 0; i < order.length; i++) {
-        const areaName = order[i];
-        const info = dominant.get(normArea(areaName)) || dominant.get(areaName);
-        const emo = info ? info.emotion : null;
-        const col = _resolveColor(emo);
         const sel = `path.room-${i + 1}`;
         const node = svg.querySelector(sel);
         if (!node) continue;
+
+        // 1) prova a leggere il nome area direttamente dal DOM
+        const areaFromDom =
+          node.getAttribute("data-area") ||
+          node.getAttribute("data-room") ||
+          node.getAttribute("aria-label") ||
+          node
+            .closest("[data-area],[data-room],[aria-label]")
+            ?.getAttribute("data-area") ||
+          node
+            .closest("[data-area],[data-room],[aria-label]")
+            ?.getAttribute("data-room") ||
+          node
+            .closest("[data-area],[data-room],[aria-label]")
+            ?.getAttribute("aria-label") ||
+          "";
+
+        // 2) se non c’è, usa l’ordine dichiarato
+        const areaName = (areaFromDom || order[i] || "").toString().trim();
+
+        // prendi il dominante per quell’area (compat con __normArea)
+        const key = normArea(areaName);
+        const info = dominant.get(key) || dominant.get(areaName);
+        const emo = info ? info.emotion : null;
+        const col = _resolveColor(emo);
 
         if (typeof d3 !== "undefined") {
           d3.select(node)
@@ -3137,11 +3215,13 @@ document.addEventListener("DOMContentLoaded", function () {
             .duration(400)
             .attr("fill", col)
             .attr("opacity", emo ? 1 : 0.25)
-            .attr("data-emo", emo || "none");
+            .attr("data-emo", emo || "none")
+            .attr("data-area", areaName);
         } else {
           node.setAttribute("fill", col);
           node.setAttribute("opacity", emo ? "1" : "0.25");
           node.setAttribute("data-emo", emo || "none");
+          node.setAttribute("data-area", areaName);
         }
       }
 
@@ -3478,9 +3558,9 @@ function reapplyLanternsSoon() {
     };
   })();
 })();
-/* ================== /ZING ADDON END ================== */ /* ================== LANTERNE OVERLAY — SOLO ENTUSIASMO ================== */
+/* ================== /ZING ADDON END ================== */ /* ================== LANTERNE OVERLAY — (SVG con viewBox) ================== */
 (function () {
-  // --- helper per normalizzazione e mappatura emozioni ---
+  // --- normalizzazione + alias emozioni (per lettura dai dati) ---
   const EMO_ALIAS = {
     curiosita: "Curiosità",
     curiosità: "Curiosità",
@@ -3506,22 +3586,32 @@ function reapplyLanternsSoon() {
       .replace(/\p{Diacritic}/gu, "")
       .replace(/\s+/g, " ");
 
-  // --- trova il gruppo host dove disegnare le lanterne ---
   function getOverlayLanternGroup() {
     return document.querySelector("#room-overlay g.overlay-lanterne");
   }
 
-  // --- carica il file SVG corretto (10–100) ---
-  async function loadLanternInner(decile) {
-    const url = `./assets/lanterns/entusiasmo/${decile}.svg`;
+  // Carica il <svg> annidato così com’è (usa il suo viewBox)
+  async function loadLanternSvg(decile, emoSlug) {
+    const url = `./assets/lanterns/${emoSlug}/${decile}.svg`;
     const res = await fetch(url, { cache: "force-cache" });
     if (!res.ok) return null;
+
     const txt = await res.text();
-    const m = txt.match(/<svg[^>]*>([\s\S]*?)<\/svg>/i);
-    return (m ? m[1] : txt).trim();
+    const doc = new DOMParser().parseFromString(txt, "image/svg+xml");
+    const svg = doc.documentElement;
+    if (!svg || svg.tagName.toLowerCase() !== "svg") return null;
+
+    const vb = svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal : null;
+    if (vb) {
+      svg.setAttribute("width", String(vb.width)); // 997
+      svg.setAttribute("height", String(vb.height)); // 700
+    }
+    svg.setAttribute("preserveAspectRatio", "xMinYMin meet"); // allinea a top-left
+    svg.setAttribute("pointer-events", "none");
+    return svg;
   }
 
-  // --- funzioni di supporto per calcolo % entusiasmo robusto ---
+  // --- supporto per calcolo % robusto direttamente dai dati in window.ZING.rows ---
   function pickAreaField(rows, areaName) {
     const keys = rows[0] ? Object.keys(rows[0]) : [];
     const target = NORM(areaName);
@@ -3539,7 +3629,6 @@ function reapplyLanternsSoon() {
     }
     return best;
   }
-
   function pickEmotionField(rows) {
     const keys = rows[0] ? Object.keys(rows[0]) : [];
     let best = null,
@@ -3556,8 +3645,7 @@ function reapplyLanternsSoon() {
     }
     return best;
   }
-
-  function computeEntuPercentFromRows(areaName) {
+  function computePercentFromRows(areaName, emotionLabel) {
     const rows = window.ZING && window.ZING.rows ? window.ZING.rows : [];
     if (!rows.length || !areaName) return 0;
     const areaField = pickAreaField(rows, areaName);
@@ -3566,92 +3654,151 @@ function reapplyLanternsSoon() {
 
     const target = NORM(areaName);
     let total = 0,
-      entu = 0;
+      match = 0;
+    const targetLabel = (emotionLabel || "").toString().trim();
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       if (NORM(r[areaField]) !== target) continue;
       total++;
       const mapped = EMO_ALIAS[NORM(r[emoField])];
-      if (mapped === "Entusiasmo") entu++;
+      if (mapped === targetLabel) match++;
     }
     if (!total) return 0;
-    return (entu * 100) / total; // % 0..100
+    return (match * 100) / total; // 0..100
   }
 
-  // --- converte % o calcola internamente dai dati ---
-  function toDecile(input) {
-    let p; // percentuale 0..100
+  // Percentuale → decile 10..100 (accetta numero o nome area + etichetta emozione)
+  function toDecile(input, emotionLabel) {
+    let p; // 0..100
     if (typeof input === "number") {
       p = input > 0 && input <= 1 ? input * 100 : input;
     } else if (typeof input === "string" && input) {
-      // prova prima la funzione esistente, altrimenti calcolo diretto
       let raw = 0;
       if (typeof computeEmotionPercentagesForArea === "function") {
         try {
           const map = computeEmotionPercentagesForArea(input) || {};
-          raw = +map.Entusiasmo || 0;
+          const val =
+            map && typeof map[emotionLabel] === "number"
+              ? map[emotionLabel]
+              : 0;
+          raw = +val || 0;
         } catch {}
       }
       p = raw
         ? raw > 0 && raw <= 1
           ? raw * 100
           : raw
-        : computeEntuPercentFromRows(input);
+        : computePercentFromRows(input, emotionLabel);
     } else {
       p = 0;
     }
-
+    if (!p || p <= 0) return 0;
     let d = Math.round(p / 10) * 10;
     if (d < 10) d = 10;
     if (d > 100) d = 100;
     return d;
   }
 
-  // --- disegna la lanterna per ENTUSIASMO nella stanza selezionata ---
-  async function drawEntusiasmoLantern(areaName, _try = 0) {
+  // Disegno generico (usa viewBox per centrare sul punto di overlay-lanterne)
+  async function drawLanternForEmotion(
+    areaName,
+    label,
+    slug,
+    className,
+    _try = 0
+  ) {
     const host = getOverlayLanternGroup();
     if (!host) {
       if (_try < 3)
-        requestAnimationFrame(() => drawEntusiasmoLantern(areaName, _try + 1));
+        requestAnimationFrame(() =>
+          drawLanternForEmotion(areaName, label, slug, className, _try + 1)
+        );
+      return;
+    }
+    if (!areaName) return;
+
+    const dec = toDecile(areaName, label);
+    if (dec === 0) {
+      // se 0, assicura anche la pulizia
+      host.querySelectorAll(`g.${className}`).forEach((n) => n.remove());
       return;
     }
 
-    // pulisci eventuale lanterna precedente
-    const old = host.querySelector("g.lanterna-entu");
-    if (old) old.remove();
-    if (!areaName) return;
+    const svg = await loadLanternSvg(dec, slug);
+    if (!svg) return;
 
-    const dec = toDecile(areaName);
-    const inner = await loadLanternInner(dec);
-    if (!inner) return;
+    // 👇 sposta la pulizia QUI, subito prima di appendere
+    host.querySelectorAll(`g.${className}`).forEach((n) => n.remove());
 
     const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    g.setAttribute("class", "lanterna-entu");
-    g.innerHTML = inner; // nessuna modifica ai path/g
+    g.setAttribute("class", className);
+    svg.setAttribute("x", "0");
+    svg.setAttribute("y", "0");
+    g.appendChild(svg);
     host.appendChild(g);
   }
 
-  // --- hook: dopo il titolo stanza, disegna la lanterna entusiasmo ---
+  // Hook: dopo il titolo stanza
   (function hookAfterTitle() {
+    if (window.__lanternHooked) return; // << guard
+    window.__lanternHooked = true;
     const prev = window.renderRoomTitle;
     window.renderRoomTitle = async function (areaName) {
       const ret = prev ? prev.call(this, areaName) : null;
       if (ret && typeof ret.then === "function") await ret;
-      drawEntusiasmoLantern(areaName);
+
+      drawLanternForEmotion(
+        areaName,
+        "Entusiasmo",
+        "entusiasmo",
+        "lanterna-entu"
+      );
+      drawLanternForEmotion(areaName, "Fiducia", "fiducia", "lanterna-fidu");
+      drawLanternForEmotion(
+        areaName,
+        "Curiosità",
+        "curiosita",
+        "lanterna-curio"
+      );
+      drawLanternForEmotion(
+        areaName,
+        "Indifferenza",
+        "indifferenza",
+        "lanterna-indifferenza"
+      );
+      drawLanternForEmotion(
+        areaName,
+        "Confusione",
+        "confusione",
+        "lanterna-confusione"
+      );
+      drawLanternForEmotion(areaName, "Timore", "timore", "lanterna-timore");
+
       return ret;
     };
   })();
 
-  // --- rimuovi lanterna alla chiusura overlay ---
+  // Cleanup alla chiusura overlay
   document.addEventListener("DOMContentLoaded", () => {
     const btn = document.getElementById("close-overlay");
-    if (btn && !btn.__lanternClean__) {
+    if (btn && !btn.__lanternsClean__) {
       btn.addEventListener("click", () => {
         const host = getOverlayLanternGroup();
-        const old = host && host.querySelector("g.lanterna-entu");
-        if (old) old.remove();
+        if (!host) return;
+        const e1 = host.querySelector("g.lanterna-entu");
+        if (e1) e1.remove();
+        const e2 = host.querySelector("g.lanterna-fidu");
+        if (e2) e2.remove();
+        const e3 = host.querySelector("g.lanterna-curio");
+        if (e3) e3.remove();
+        const e4 = host.querySelector("g.lanterna-indifferenza");
+        if (e4) e4.remove();
+        const e5 = host.querySelector("g.lanterna-confusione");
+        if (e5) e5.remove();
+        const e6 = host.querySelector("g.lanterna-timore");
+        if (e6) e6.remove();
       });
-      btn.__lanternClean__ = true;
+      btn.__lanternsClean__ = true;
     }
   });
 })();
