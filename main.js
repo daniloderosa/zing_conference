@@ -232,7 +232,7 @@ const EMO_COLORS = new Map([
   ["Entusiasmo", "#F1C40F"],
   ["Fiducia", "#3498DB"],
   ["Indifferenza", "#95A5A6"],
-  ["Confusione", "#9B59B6"],
+  ["Confusione", "#D295F7"],
   ["Timore", "#E74C3C"],
 ]);
 const NO_DATA_COLOR =
@@ -927,7 +927,7 @@ function resolveEmotionColor(label) {
     entusiasmo: "#F1C40F",
     fiducia: "#3498DB",
     indifferenza: "#95A5A6",
-    confusione: "#9B59B6",
+    confusione: "#D295F7",
     timore: "#E74C3C",
   };
   return FALLBACK[norm(key)] || "var(--text)";
@@ -3799,6 +3799,179 @@ function reapplyLanternsSoon() {
         if (e6) e6.remove();
       });
       btn.__lanternsClean__ = true;
+    }
+  });
+})();
+/* ================== LANTERNE TOTALI (su tutti i dati) ================== */
+(function () {
+  // util: normalizza e alias (riusa quelli globali se già definiti)
+  const NORM =
+    window.NORM ||
+    ((s) =>
+      (s ?? "")
+        .toString()
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/\p{Diacritic}/gu, "")
+        .replace(/\s+/g, " "));
+  const EMO_ALIAS = window.EMO_ALIAS || {
+    curiosita: "Curiosità",
+    curiosità: "Curiosità",
+    curiosity: "Curiosità",
+    entusiasmo: "Entusiasmo",
+    enthusiasm: "Entusiasmo",
+    fiducia: "Fiducia",
+    trust: "Fiducia",
+    indifferenza: "Indifferenza",
+    indifference: "Indifferenza",
+    confusione: "Confusione",
+    confusion: "Confusione",
+    timore: "Timore",
+    paura: "Timore",
+    fear: "Timore",
+  };
+
+  function getTotalsHost() {
+    return document.querySelector("#room-overlay g.overlay-lanterne-totali");
+  }
+
+  // pick colonna emozione dai rows
+  function pickEmotionField(rows) {
+    const keys = rows[0] ? Object.keys(rows[0]) : [];
+    let best = null,
+      hits = -1;
+    for (const k of keys) {
+      let h = 0;
+      for (let i = 0; i < rows.length && i < 1000; i++) {
+        if (EMO_ALIAS[NORM(rows[i][k])]) h++;
+      }
+      if (h > hits) {
+        best = k;
+        hits = h;
+      }
+    }
+    return best;
+  }
+
+  // % sul totale (0..100) per un’etichetta emozione
+  function computePercentAllRows(emotionLabel) {
+    const rows = window.ZING && window.ZING.rows ? window.ZING.rows : [];
+    if (!rows.length) return 0;
+    const emoField = pickEmotionField(rows);
+    if (!emoField) return 0;
+
+    let tot = 0,
+      match = 0;
+    for (const r of rows) {
+      const lab = EMO_ALIAS[NORM(r[emoField])];
+      if (!lab) continue;
+      tot++;
+      if (lab === emotionLabel) match++;
+    }
+    if (!tot) return 0;
+    return (match * 100) / tot;
+  }
+
+  // numero (%) → decile (0 => non disegnare)
+  function toDecilePercent(p) {
+    const v = p > 0 && p <= 1 ? p * 100 : p;
+    if (!v || v <= 0) return 0;
+    let d = Math.round(v / 10) * 10;
+    if (d < 10) d = 10;
+    if (d > 100) d = 100;
+    return d;
+  }
+
+  // carica <svg> annidato dalla cartella lanterns_totali/<slug>/<decile>.svg
+  async function loadTotalSvg(decile, slug) {
+    const url = `./assets/lanterns_totali/${slug}/${decile}.svg`;
+    const res = await fetch(url, { cache: "force-cache" });
+    if (!res.ok) return null;
+    const txt = await res.text();
+    const doc = new DOMParser().parseFromString(txt, "image/svg+xml");
+    const svg = doc.documentElement;
+    if (!svg || svg.tagName.toLowerCase() !== "svg") return null;
+
+    const vb = svg.viewBox && svg.viewBox.baseVal ? svg.viewBox.baseVal : null;
+    if (vb) {
+      // evita che riempia 100%
+      svg.setAttribute("width", String(vb.width));
+      svg.setAttribute("height", String(vb.height));
+    }
+    svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
+    svg.setAttribute("pointer-events", "none");
+    svg.setAttribute("x", "0");
+    svg.setAttribute("y", "0");
+    return svg;
+  }
+
+  async function drawTotalLantern(emotionLabel, slug, className, _try = 0) {
+    const host = getTotalsHost();
+    if (!host) {
+      if (_try < 3)
+        requestAnimationFrame(() =>
+          drawTotalLantern(emotionLabel, slug, className, _try + 1)
+        );
+      return;
+    }
+    // calcolo % globale e decile
+    const p = computePercentAllRows(emotionLabel);
+    const dec = toDecilePercent(p);
+    // pulizia classe (sempre) e bail se 0
+    host.querySelectorAll(`g.${className}`).forEach((n) => n.remove());
+    if (dec === 0) return;
+
+    const svg = await loadTotalSvg(dec, slug);
+    if (!svg) return;
+
+    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    g.setAttribute("class", className);
+    g.appendChild(svg);
+    host.appendChild(g);
+  }
+
+  // hook: aggiungi il disegno dei TOTALI quando si apre una stanza
+  (function hookTotals() {
+    if (window.__lanternTotalsHooked) return;
+    window.__lanternTotalsHooked = true;
+
+    const prev = window.renderRoomTitle;
+    window.renderRoomTitle = async function (areaName) {
+      const ret = prev ? prev.call(this, areaName) : null;
+      if (ret && typeof ret.then === "function") await ret;
+
+      // 6 emozioni (totali globali)
+      drawTotalLantern("Curiosità", "curiosita", "lanterna-tot-curio");
+      drawTotalLantern("Entusiasmo", "entusiasmo", "lanterna-tot-entu");
+      drawTotalLantern("Fiducia", "fiducia", "lanterna-tot-fidu");
+      drawTotalLantern("Indifferenza", "indifferenza", "lanterna-tot-indif");
+      drawTotalLantern("Confusione", "confusione", "lanterna-tot-conf");
+      drawTotalLantern("Timore", "timore", "lanterna-tot-timore");
+
+      return ret;
+    };
+  })();
+
+  // cleanup alla chiusura overlay (solo wrapper totali)
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("close-overlay");
+    if (btn && !btn.__lanternsTotalsClean__) {
+      btn.addEventListener("click", () => {
+        const host = getTotalsHost();
+        if (!host) return;
+        [
+          "lanterna-tot-curio",
+          "lanterna-tot-entu",
+          "lanterna-tot-fidu",
+          "lanterna-tot-indif",
+          "lanterna-tot-conf",
+          "lanterna-tot-timore",
+        ].forEach((cls) =>
+          host.querySelectorAll(`g.${cls}`).forEach((n) => n.remove())
+        );
+      });
+      btn.__lanternsTotalsClean__ = true;
     }
   });
 })();
