@@ -258,12 +258,12 @@ function updateLeftBlurbForArea(areaName) {
   descEl.textContent = copy.desc || "";
 }
 const EMO_COLORS = new Map([
-  ["Curiosità", "#2ECC71"],
-  ["Entusiasmo", "#F1C40F"],
-  ["Fiducia", "#3498DB"],
-  ["Indifferenza", "#95A5A6"],
+  ["Curiosità", "#66DE80"],
+  ["Entusiasmo", "#FAD859"],
+  ["Fiducia", "#4CA8EF"],
+  ["Indifferenza", "#979CAB"],
   ["Confusione", "#D295F7"],
-  ["Timore", "#E74C3C"],
+  ["Timore", "#DD404C"],
 ]);
 const NO_DATA_COLOR =
   getComputedStyle(document.documentElement).getPropertyValue("--noData") ||
@@ -953,12 +953,12 @@ function resolveEmotionColor(label) {
 
   // (c) palette di riserva (se proprio serve)
   const FALLBACK = {
-    curiosità: "#2ECC71",
-    entusiasmo: "#F1C40F",
-    fiducia: "#3498DB",
-    indifferenza: "#95A5A6",
+    curiosità: "#66DE80",
+    entusiasmo: "#FAD859",
+    fiducia: "#4CA8EF",
+    indifferenza: "#979CAB",
     confusione: "#D295F7",
-    timore: "#E74C3C",
+    timore: "#DD404C",
   };
   return FALLBACK[norm(key)] || "var(--text)";
 }
