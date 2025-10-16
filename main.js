@@ -42,6 +42,36 @@ window.__isOverlayOpen =
       return false;
     }
   };
+// === Lanterns: toggle classe su #room-overlay e imposta colore selezione ===
+function __emoSlug(label) {
+  return String(label || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, "-"); // "Fiducia" -> "fiducia", "Curiosità" -> "curiosita"
+}
+
+function selectEmotionForLanterns(slugOrNull, colorHexOrCss) {
+  const root = document.getElementById("room-overlay");
+  if (!root) return;
+
+  // rimuovi eventuali precedenti
+  Array.from(root.classList).forEach((c) => {
+    if (c.startsWith("emo-selected-")) root.classList.remove(c);
+  });
+
+  if (!slugOrNull) {
+    // nessuna selezione -> torna all'originale
+    root.style.removeProperty("--selected-emo-color");
+    return;
+  }
+
+  root.classList.add(`emo-selected-${slugOrNull}`);
+  if (colorHexOrCss) {
+    root.style.setProperty("--selected-emo-color", colorHexOrCss);
+  }
+}
 
 /* ===========================================================================
 Z!NG • EMOTIONAL JOURNEY • main.js (FULL, COMMENTED)
@@ -1281,7 +1311,7 @@ d3.selectAll(".emotions li").on("click", function () {
   const li = d3.select(this);
   const emotion = (li.attr("data-emotion") || li.text()).trim();
 
-  // Determine color from legend (CSS var --c) with fallback to EMO_COLORS
+  // Colore dall’elemento della legenda (var --c), con fallback
   const liNode = li.node();
   let emoColor = getEmotionColorFromLegendLi(liNode);
   if (!emoColor && typeof EMO_COLORS !== "undefined" && EMO_COLORS.get) {
@@ -1290,67 +1320,67 @@ d3.selectAll(".emotions li").on("click", function () {
     emoColor = EMO_COLORS.get(canon) || null;
   }
 
-  // Save selection color globally for theme changes
+  // Salva selezione globale (già usata in altri punti del file)
   window.__SELECTED_EMOTION_COLOR = emoColor || null;
+  window.__SELECTED_EMOTION_LABEL = emotion;
 
-  // >>> [P3] salva anche la LABEL in globale (serve ai grafici Giorno1/2)
-  window.__SELECTED_EMOTION_LABEL = emotion; // <-- AGGIUNGI QUESTA
-  (function () {
-    window.__APPLY_OPACITY_TOKEN++;
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        applyPerRoomEmotionOpacity(window.__SELECTED_EMOTION_LABEL);
-      })
-    );
-  })();
-
-  // Update overlay metrics if inside a room
-  if (window.ZING && window.ZING.currentArea) {
-    updateEmotionMetrics(window.ZING.currentArea, emotion);
-    updateStackedBarColors(window.__SELECTED_EMOTION_COLOR);
-    // optional layout function
-    if (
-      document.getElementById("hourly-block") &&
-      window.ZING &&
-      window.ZING.currentArea
-    ) {
-      requestAnimationFrame(() => renderHourlyChart(window.ZING.currentArea));
-    }
-
-    function positionRoomMetrics() {}
-    requestAnimationFrame(() => positionRoomMetrics());
-  }
-
+  // Toggle UI della legenda
   const wasActive = li.classed("active");
   d3.selectAll(".emotions li").classed("active", false);
   d3.selectAll(".bar").classed("dimmed", false);
+  selectEmotionForLanterns(null, null);
+
+  // NEW: toggle classe/colore per le LANTERNE nell’overlay (Option A CSS)
+  const slug = __emoSlug(emotion);
   if (!wasActive) {
     li.classed("active", true);
-    d3.selectAll(".bar").classed("dimmed", (d) => (d.emo || "—") !== emotion);
+    d3.selectAll(".bar").classed("dimmed", function (d) {
+      // se non c'è nessuna selezione → nessuna barra è dimmed
+      if (!emotion) return false;
+      // alcuni .bar non hanno datum: in quel caso considera dimmed
+      return !(d && d.emo === emotion);
+    });
+
+    // attiva evidenza su overlay
+    selectEmotionForLanterns(slug, emoColor || "currentColor");
   } else {
-    // se stai deselezionando, azzera anche la label globale
+    // deselezione
     window.__SELECTED_EMOTION_LABEL = null;
-    (function () {
-      window.__APPLY_OPACITY_TOKEN++;
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          applyPerRoomEmotionOpacity(null);
-        })
-      );
-    })(); // <-- [P3] opzionale ma consigliato
+    selectEmotionForLanterns(null, null);
     const blk = document.querySelector(".room-metrics-emotion");
     if (blk) blk.style.display = "none";
   }
+
+  // Re-applica opacità per riquadri stanza (logica già esistente)
   (function () {
     window.__APPLY_OPACITY_TOKEN++;
     requestAnimationFrame(() =>
       requestAnimationFrame(() => {
-        applyPerRoomEmotionOpacity(null);
+        applyPerRoomEmotionOpacity(window.__SELECTED_EMOTION_LABEL || null);
       })
     );
   })();
 
-  // >>> [P3] riapplica l’highlight alle timeline Giorno1/Giorno2
+  // Aggiorna metriche overlay (se siamo in una stanza)
+  if (window.ZING && window.ZING.currentArea) {
+    if (!wasActive) {
+      updateEmotionMetrics(window.ZING.currentArea, emotion);
+      updateStackedBarColors(window.__SELECTED_EMOTION_COLOR);
+      if (
+        document.getElementById("hourly-block") &&
+        window.ZING &&
+        window.ZING.currentArea
+      ) {
+        requestAnimationFrame(() => renderHourlyChart(window.ZING.currentArea));
+      }
+    } else {
+      // reset colori stacked se deselezioni
+      updateStackedBarColors(null);
+    }
+    requestAnimationFrame(() => {});
+  }
+
+  // Mantieni la sincronizzazione con le timeline Day1/Day2
   if (typeof ensureTimelineColorsAndFilter === "function")
     ensureTimelineColorsAndFilter();
   applyLegendHighlightToTimelineCharts();
@@ -3696,7 +3726,7 @@ function reapplyLanternsSoon() {
     let d = Math.round(p / 10) * 10;
     if (d < 10) d = 10;
     if (d > 100) d = 100;
-    return d;
+    return d * 2;
   }
 
   // Disegno generico (usa viewBox per centrare sul punto di overlay-lanterne)
