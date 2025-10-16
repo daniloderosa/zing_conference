@@ -1376,51 +1376,94 @@ body.overlay-open #room-blurb {
   margin: 0;
 }
 /* ========================== */
-/* Evidenza lanterne in overlay */
+/* Evidenza lanterne in overlay (comportamento richiesto) */
 #room-overlay {
   --selected-emo-color: currentColor;
 }
 
-/* ——— Per le lanterne filtrate per stanza ——— */
-/* Tutte le altre emozioni (non selezionate) diventano #7E6885 */
-#room-overlay[class*="emo-selected-"] g.overlay-lanterne [fill="#66DE80"],
-#room-overlay[class*="emo-selected-"] g.overlay-lanterne [fill="#FAD859"],
-#room-overlay[class*="emo-selected-"] g.overlay-lanterne [fill="#4CA8EF"],
-#room-overlay[class*="emo-selected-"] g.overlay-lanterne [fill="#D295F7"],
-#room-overlay[class*="emo-selected-"] g.overlay-lanterne [fill="#DD404C"],
-#room-overlay[class*="emo-selected-"] g.overlay-lanterne [fill="#979CAB"] {
+/* --- PER-STANZA: desatura solo NON selezionate --- */
+#room-overlay.emo-selected-curiosita
+  g.overlay-lanterne
+  > g[class^="lanterna-"]:not(.lanterna-curio)
+  [fill] {
   fill: #7e6885 !important;
 }
-
-/* Tutte le altre emozioni (non selezionate) diventano bianche */
-#room-overlay[class*="emo-selected-"] g.overlay-lanterne [stroke="#45BE5F"],
-#room-overlay[class*="emo-selected-"] g.overlay-lanterne [stroke="#CEB34F"],
-#room-overlay[class*="emo-selected-"] g.overlay-lanterne [stroke="#3072A6"],
-#room-overlay[class*="emo-selected-"] g.overlay-lanterne [stroke="#B077D3"],
-#room-overlay[class*="emo-selected-"] g.overlay-lanterne [stroke="#BC3F49"],
-#room-overlay[class*="emo-selected-"] g.overlay-lanterne [stroke="#7D818C"] {
+#room-overlay.emo-selected-curiosita
+  g.overlay-lanterne
+  > g[class^="lanterna-"]:not(.lanterna-curio)
+  [stroke] {
   stroke: #505050 !important;
 }
 
-/* ——— Per le lanterne totali ——— */
-/* Tutte le altre emozioni (non selezionate) diventano bianche */
+#room-overlay.emo-selected-entusiasmo
+  g.overlay-lanterne
+  > g[class^="lanterna-"]:not(.lanterna-entu)
+  [fill] {
+  fill: #7e6885 !important;
+}
+#room-overlay.emo-selected-entusiasmo
+  g.overlay-lanterne
+  > g[class^="lanterna-"]:not(.lanterna-entu)
+  [stroke] {
+  stroke: #505050 !important;
+}
+
+#room-overlay.emo-selected-fiducia
+  g.overlay-lanterne
+  > g[class^="lanterna-"]:not(.lanterna-fidu)
+  [fill] {
+  fill: #7e6885 !important;
+}
+#room-overlay.emo-selected-fiducia
+  g.overlay-lanterne
+  > g[class^="lanterna-"]:not(.lanterna-fidu)
+  [stroke] {
+  stroke: #505050 !important;
+}
+
+#room-overlay.emo-selected-confusione
+  g.overlay-lanterne
+  > g[class^="lanterna-"]:not(.lanterna-confusione)
+  [fill] {
+  fill: #7e6885 !important;
+}
+#room-overlay.emo-selected-confusione
+  g.overlay-lanterne
+  > g[class^="lanterna-"]:not(.lanterna-confusione)
+  [stroke] {
+  stroke: #505050 !important;
+}
+
+#room-overlay.emo-selected-timore
+  g.overlay-lanterne
+  > g[class^="lanterna-"]:not(.lanterna-timore)
+  [fill] {
+  fill: #7e6885 !important;
+}
+#room-overlay.emo-selected-timore
+  g.overlay-lanterne
+  > g[class^="lanterna-"]:not(.lanterna-timore)
+  [stroke] {
+  stroke: #505050 !important;
+}
+
+#room-overlay.emo-selected-indifferenza
+  g.overlay-lanterne
+  > g[class^="lanterna-"]:not(.lanterna-indifferenza)
+  [fill] {
+  fill: #7e6885 !important;
+}
+#room-overlay.emo-selected-indifferenza
+  g.overlay-lanterne
+  > g[class^="lanterna-"]:not(.lanterna-indifferenza)
+  [stroke] {
+  stroke: #505050 !important;
+}
+
+/* --- TOTALI: tutti gli stroke bianchi (fill invariati) --- */
 #room-overlay[class*="emo-selected-"]
   g.overlay-lanterne-totali
-  [stroke="#505050"] {
+  > g[class^="lanterna-tot-"]
+  [stroke] {
   stroke: #ffffff !important;
-}
-/* ——— Ma la lanterna della emozione selezionata rimane nel suo colore originale ——— */
-#room-overlay.emo-selected-curiosita g.lanterna-curio [fill="#66DE80"],
-#room-overlay.emo-selected-entusiasmo g.lanterna-entu [fill="#FAD859"],
-#room-overlay.emo-selected-fiducia g.lanterna-fidu [fill="#4CA8EF"],
-#room-overlay.emo-selected-confusione g.lanterna-conf [fill="#D295F7"],
-#room-overlay.emo-selected-timore g.lanterna-timore[fill="#DD404C"],
-#room-overlay.emo-selected-indifferenza g.lanterna-indif [fill="#979CAB"],
-#room-overlay.emo-selected-curiosita g.lanterna-tot-curio [fill="#45BE5F"],
-#room-overlay.emo-selected-entusiasmo g.lanterna-tot-entu [fill="#CEB34F"],
-#room-overlay.emo-selected-fiducia g.lanterna-tot-fidu [fill="#3072A6"],
-#room-overlay.emo-selected-confusione g.lanterna-tot-conf [fill="#B077D3"],
-#room-overlay.emo-selected-timore g.lanterna-tot-timore [fill="#BC3F49"],
-#room-overlay.emo-selected-indifferenza g.lanterna-tot-indif[fill="#7D818C"] {
-  fill: var(--selected-emo-color) !important;
 }
