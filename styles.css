@@ -118,14 +118,6 @@ body {
   font-weight: 700;
   color: var(--text);
 }
-.emotions i {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--c);
-  display: inline-block;
-}
-
 /* ------- center column (SVG 9 rooms) ------- */
 .col-center {
   background: var(--panel);
@@ -362,11 +354,10 @@ body {
   gap: 8px;
 }
 .emotions i {
-  width: 12px;
-  height: 12px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: var(--c);
-  flex: 0 0 12px;
 }
 
 /* ---- (OPZIONALE) Applica le proporzioni Figma SOLO su viewport alti ----
@@ -807,34 +798,10 @@ body[data-theme="dark"] {
   text-align: left;
 }
 
-#room-overlay #hourly-block .hourly-header {
-  display: flex;
-  flex-direction: column; /* titolo su, selettore sotto */
-  align-items: flex-start; /* allineati a sinistra */
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
 #room-overlay #hourly-block h3 {
   margin: 0;
   line-height: 1.2;
-}
-
-#room-overlay #hourly-block .hourly-date-switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-#room-overlay #hourly-block .hour-btn {
-  background: none;
-  border: 0;
-  color: var(--text);
-  cursor: pointer;
-  padding: 2px 6px;
-  font-weight: 700;
+  font-size: 16px;
 }
 
 #room-overlay #hourly-block .hourly-chart-wrap {
@@ -888,11 +855,11 @@ body[data-theme="dark"] {
 
 .col-right .rightcol-subtitle {
   position: relative;
-  padding-bottom: 12px; /* spazio prima della linea */
+  padding-bottom: 18px; /* spazio prima della linea */
   margin-bottom: 16px;
   font-weight: 400;
   font-size: var(--fs-16pt);
-  line-height: 1.35;
+  line-height: 1.4;
   opacity: 0.9;
 }
 
@@ -996,6 +963,7 @@ p,
   --fs-16pt: 16px;
   --fs-18pt: 18px;
   --fs-20pt: 20px;
+  --fs-24pt: 24px;
   --fs-28pt: 28px;
   --fs-36pt: 36px;
 }
@@ -1006,14 +974,14 @@ p,
   font-family: "Manrope", sans-serif;
   font-weight: 400;
   font-size: var(--fs-16pt);
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 /* Legend */
 .emotions li {
   font-family: "Manrope", sans-serif;
   font-weight: 600;
-  font-size: var(--fs-20pt);
+  font-size: var(--fs-28pt);
   /*margin: 8px 0 6px 0;*/
 }
 
@@ -1323,6 +1291,7 @@ body.overlay-open .col-left .howto li:nth-child(2) .copy::after {
 /* ripristina la separatrice prima del 4° li quando nascondiamo il 3° */
 body.overlay-open .col-left .howto li:nth-child(4) {
   border-top: 1px solid #b0b0b0;
+  padding-top: 16px;
 }
 
 /* --- HOWTO ICONS REWORK --- */
@@ -1353,6 +1322,8 @@ body.overlay-open .col-left .howto li:nth-child(2) .icon {
 /* Di default: mostra il testo overview, nascondi il blurb stanza */
 #room-blurb {
   display: none;
+  margin-top: 22px;
+  margin-bottom: 22px;
 }
 
 body.overlay-open #overview-blurb {
@@ -1364,14 +1335,14 @@ body.overlay-open #room-blurb {
 
 /* Tipografia dedicata per i due livelli (titolo e descrizione) */
 #room-blurb #room-blurb-title {
-  font-size: var(--fs-18pt);
+  font-size: var(--fs-24pt);
   font-weight: 700;
   line-height: 1.25;
   margin: 0 0 6px 0;
 }
 #room-blurb #room-blurb-desc {
   font-size: var(--fs-16pt);
-  line-height: 1.35;
+  line-height: 1.4;
   opacity: 0.9;
   margin: 0;
 }
@@ -1466,4 +1437,61 @@ body.overlay-open #room-blurb {
   > g[class^="lanterna-tot-"]
   [stroke] {
   stroke: #ffffff !important;
+}
+.col-left,
+.col-right {
+  margin-top: 22px;
+}
+.hour-btn {
+  border: 1px solid var(--text);
+  background: transparent;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.hour-btn.active {
+  background: var(--text);
+  color: var(--bg);
+}
+/* --- Hourly: pill affiancate e stato attivo solo col testo --- */
+#room-overlay #hourly-block .hourly-date-switch {
+  display: flex; /* affiancate */
+  gap: 8px;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+#room-overlay #hourly-block .hour-btn {
+  margin-top: 10px;
+  display: inline-flex; /* niente block/100% width */
+  align-items: center;
+  width: auto; /* forza larghezza naturale */
+  background: transparent !important; /* mai riempite */
+  border: 1.5px solid var(--text);
+  border-radius: 9999px;
+  padding: 6px 14px;
+  font: 600 14px/1.1 "Manrope", system-ui, sans-serif;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+    min-width: 100px;          /* regola la misura finché ci stanno i nomi lunghi */
+  text-align: center;        /* testo centrato */
+  justify-content: center;   /
+}
+
+/* non attiva: grigetto */
+#room-overlay #hourly-block .hour-btn:not(.active):not([aria-pressed="true"]) {
+  color: #a3a3a3;
+  border-color: #a3a3a3;
+}
+
+/* attiva: SOLO testo/bordo scuri, sfondo trasparente */
+#room-overlay #hourly-block .hour-btn.active,
+#room-overlay #hourly-block .hour-btn[aria-pressed="true"] {
+  color: var(--text);
+  border-color: var(--text);
+  background: transparent !important; /* ← niente fondo nero */
+}
+
+/* hover leggero (opzionale) */
+#room-overlay #hourly-block .hour-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
 }

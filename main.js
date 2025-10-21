@@ -100,8 +100,8 @@ Dalla prossima modifica del file main.js puoi rimuovere il commento iniziale.
 
 const margin = { top: 20, right: 20, bottom: 20, left: 50 };
 
-const SHEET_ID = "1pDjRrWJLUwri0MbmjztUIIkhnmo6DDm0mpv5sDhFOWc"; //test
-//const SHEET_ID = "13kEh1bfP48nun0PcHiNmalUavq--vhwGXw_NJO552KI"; //prod
+//const SHEET_ID = "1pDjRrWJLUwri0MbmjztUIIkhnmo6DDm0mpv5sDhFOWc"; //test
+const SHEET_ID = "13kEh1bfP48nun0PcHiNmalUavq--vhwGXw_NJO552KI"; //prod
 const SHEET_NAME = "FEED";
 function csvUrl() {
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(
@@ -753,9 +753,10 @@ ${SELECTED_LABEL}: ${d.__stack_emoN || 0} / ${d.__stack_totalN || 0}`;
   };
 }
 // "2025-10-01" -> "mercoledì 01"
-function formatDaySubhead(dateStr) {
+function formatDaySubhead(input) {
   try {
-    const d = new Date(`${dateStr}T00:00:00`);
+    const d = input instanceof Date ? input : new Date(`${input}T00:00:00`);
+    if (isNaN(+d)) return "—";
     return new Intl.DateTimeFormat("it-IT", {
       weekday: "long",
       day: "2-digit",
@@ -1021,10 +1022,10 @@ async function loadAndRenderBoth() {
     const day2Date = dates[1] || null;
     // ----- aggiorna i sottotitoli sopra i due grafici (se presenti in HTML) -----
     const el1 = document.getElementById("day1-subtitle");
-    if (el1) el1.textContent = day1Date ? formatDaySubhead(day1Date) : "—";
+    if (el1) el1.textContent = formatDaySubhead(new Date(2025, 9, 23));
 
     const el2 = document.getElementById("day2-subtitle");
-    if (el2) el2.textContent = day2Date ? formatDaySubhead(day2Date) : "—";
+    if (el2) el2.textContent = formatDaySubhead(new Date(2025, 9, 24));
 
     const rowsDay1 = rows.filter(
       (r) => String(r.giorno) === "1" || (day1Date && r.date === day1Date)
@@ -2216,7 +2217,11 @@ function _groupByHour(area, dateStr) {
 
 // Stato per lo switch data nell’overlay
 window.__HOURLY_STATE__ = { dates: [], idx: 0 };
-
+// Formatter per i bottoni dell'affluenza: "martedì 21"
+const fmtHourlyBtn = new Intl.DateTimeFormat("it-IT", {
+  weekday: "long",
+  day: "2-digit",
+});
 // Render del grafico a barre orarie (usa D3 se già incluso nel progetto)
 function renderHourlyChart(area) {
   const block = document.getElementById("hourly-block");
@@ -2230,10 +2235,33 @@ function renderHourlyChart(area) {
   state.dates = _collectTwoDatesForArea(area);
   if (state.idx >= state.dates.length) state.idx = 0;
 
+  const dateA = state.dates[0] || null;
+  const dateB = state.dates[1] || null;
+
+  // Bottoni (se esistono in pagina)
+  const b1 = document.getElementById("hour-btn-1");
+  const b2 = document.getElementById("hour-btn-2");
+
+  // Etichette bottoni: se non hai una formattazione custom, mostri la stringa "YYYY-MM-DD"
+  if (b1)
+    b1.textContent = dateA
+      ? fmtHourlyBtn.format(new Date(dateA + "T00:00:00"))
+      : "—";
+  if (b2)
+    b2.textContent = dateB
+      ? fmtHourlyBtn.format(new Date(dateB + "T00:00:00"))
+      : "—";
+
+  // Stato attivo
+  if (b1) b1.classList.toggle("active", state.idx === 0);
+  if (b2) b2.classList.toggle("active", state.idx === 1);
+
+  // Sostituisce la vecchia label singola
   const dateNow = state.dates[state.idx] || null;
   const label = document.getElementById("hour-date-label");
   if (label) label.textContent = dateNow || "—";
 
+  // Mostra/nasconde il blocco in base alla disponibilità della data selezionata
   block.hidden = !dateNow;
   if (!dateNow) return;
 
@@ -2339,7 +2367,7 @@ function renderHourlyChart(area) {
   const W = wrapEl?.clientWidth || 320;
   const H = wrapEl?.clientHeight || 420;
   // top più ampio per non tagliare l’asse X
-  const M = { top: 36, right: 32, bottom: 28, left: 34 };
+  const M = { top: 0, right: 32, bottom: 28, left: 34 };
 
   svg.attr("viewBox", `0 0 ${W} ${H}`);
 
@@ -2365,12 +2393,13 @@ function renderHourlyChart(area) {
   const BAR_Y_THICKNESS = 0.6; // frazione dell’altezza della band (0..1)
 
   // Assi con soli tick
+  const X_AXIS_GAP = 0; // es. 6
+
   const gx = g
     .append("g")
     .attr("class", "axis x")
-    .call(d3.axisTop(x).ticks(5).tickSizeInner(6).tickSizeOuter(0))
-    .attr("transform", "translate(5,0)");
-  gx.select(".domain").remove();
+    .attr("transform", `translate(5, ${innerH + X_AXIS_GAP})`)
+    .call(d3.axisBottom(x).ticks(5).tickSizeInner(6).tickSizeOuter(0));
 
   const gy = g
     .append("g")
@@ -2423,28 +2452,37 @@ function renderHourlyChart(area) {
   });
 }
 
-// wiring bottoni prev/next
-(function wireHourlySwitch() {
-  const prev = document.getElementById("hour-prev");
-  const next = document.getElementById("hour-next");
-  if (!prev || !next) return;
+// wiring bottoni data (due bottoni affiancati)
+(function wireHourlyButtons() {
+  const b1 = document.getElementById("hour-btn-1");
+  const b2 = document.getElementById("hour-btn-2");
+  if (!b1 && !b2) return;
 
-  prev.addEventListener("click", () => {
-    const s = window.__HOURLY_STATE__;
-    if (!s.dates.length) return;
-    s.idx = (s.idx - 1 + s.dates.length) % s.dates.length;
-    if (window.ZING && window.ZING.currentArea) {
-      renderHourlyChart(window.ZING.currentArea);
-    }
-  });
-  next.addEventListener("click", () => {
-    const s = window.__HOURLY_STATE__;
-    if (!s.dates.length) return;
-    s.idx = (s.idx + 1) % s.dates.length;
-    if (window.ZING && window.ZING.currentArea) {
-      renderHourlyChart(window.ZING.currentArea);
-    }
-  });
+  // click: seleziona indice 0 o 1 e ridisegna il grafico per la stanza corrente
+  if (b1 && !b1.__bound__) {
+    b1.addEventListener("click", () => {
+      window.__HOURLY_STATE__ = window.__HOURLY_STATE__ || {
+        dates: [],
+        idx: 0,
+      };
+      window.__HOURLY_STATE__.idx = 0;
+      const area = (window.ZING && window.ZING.currentArea) || null;
+      if (area) renderHourlyChart(area);
+    });
+    b1.__bound__ = true;
+  }
+  if (b2 && !b2.__bound__) {
+    b2.addEventListener("click", () => {
+      window.__HOURLY_STATE__ = window.__HOURLY_STATE__ || {
+        dates: [],
+        idx: 0,
+      };
+      window.__HOURLY_STATE__.idx = 1;
+      const area = (window.ZING && window.ZING.currentArea) || null;
+      if (area) renderHourlyChart(area);
+    });
+    b2.__bound__ = true;
+  }
 })();
 
 // Richiama il render quando apri l’overlay o quando cambi stanza
@@ -3725,8 +3763,9 @@ function reapplyLanternsSoon() {
     if (!p || p <= 0) return 0;
     let d = Math.round(p / 10) * 10;
     if (d < 10) d = 10;
+    d = d * 2;
     if (d > 100) d = 100;
-    return d * 2;
+    return d;
   }
 
   // Disegno generico (usa viewBox per centrare sul punto di overlay-lanterne)
@@ -3909,6 +3948,7 @@ function reapplyLanternsSoon() {
     if (!v || v <= 0) return 0;
     let d = Math.round(v / 10) * 10;
     if (d < 10) d = 10;
+    d = d * 2;
     if (d > 100) d = 100;
     return d;
   }
